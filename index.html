@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Estúdio de Fotos - Senac</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Configuração das cores do Senac -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            senac: {
+              blue: '#004A8D',
+              orange: '#F26522',
+              darkBlue: '#003366',
+              lightGray: '#F4F6F9'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Estilos customizados para espelhar a câmera e animação do flash */
+    .mirror {
+      transform: scaleX(-1);
+    }
+    @keyframes flashAnimation {
+      0% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+    .flash-effect {
+      animation: flashAnimation 0.5s ease-out forwards;
+    }
+  </style>
+</head>
+<body class="bg-senac-lightGray font-sans min-h-screen flex flex-col justify-between text-gray-800">
+
+  <!-- Header Institucional Senac -->
+  <header class="bg-senac-blue text-white shadow-md">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+      <div class="flex items-center space-x-3">
+        <!-- Logo do Senac (SVG estilizado) -->
+        <div class="bg-white p-2 rounded-lg flex items-center justify-center">
+          <svg class="h-8 w-auto text-senac-blue" viewBox="0 0 100 60" fill="currentColor">
+            <path d="M20 40 C 10 40, 5 30, 15 20 C 25 10, 40 10, 50 25 C 60 10, 75 10, 85 20 C 95 30, 90 40, 80 40 C 70 40, 65 30, 50 35 C 35 30, 30 40, 20 40 Z" fill="#F26522"/>
+            <text x="50%" y="52%" dominant-baseline="middle" text-anchor="middle" font-size="22" font-weight="bold" fill="#004A8D" font-family="sans-serif">Senac</text>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold tracking-wide">Cabine de Fotos Digital</h1>
+          <p class="text-xs text-orange-200">Registre seu momento no Senac!</p>
+        </div>
+      </div>
+      <div class="text-xs sm:text-sm bg-senac-darkBlue px-3 py-1.5 rounded-full border border-orange-400/30 flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse"></span>
+        Sistema de Captura Ativo
+      </div>
+    </div>
+  </header>
+
+  <!-- Conteúdo Principal -->
+  <main class="max-w-6xl mx-auto px-4 py-8 flex-grow w-full">
+
+    <!-- Flash Overlay para efeito de foto -->
+    <div id="flash" class="fixed inset-0 bg-white z-50 pointer-events-none opacity-0 hidden"></div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      
+      <!-- LADO ESQUERDO: Câmera & Moldura (8 colunas) -->
+      <div class="lg:col-span-7 flex flex-col items-center">
+        
+        <!-- Container com a Moldura do Senac -->
+        <div class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden border-4 border-senac-blue">
+          
+          <!-- Moldura Superior decorativa -->
+          <div class="bg-senac-blue px-4 py-2 text-white flex justify-between items-center text-xs font-semibold">
+            <span class="flex items-center gap-1"><i class="fa-solid fa-graduation-cap text-senac-orange"></i> Transformando Vidas</span>
+            <span>#MundoSenac</span>
+          </div>
+
+          <!-- ÁREA DA WEBCAM / MOLDURA -->
+          <div class="relative aspect-[3/4] bg-gray-900 flex items-center justify-center overflow-hidden">
+            
+            <!-- Video ao Vivo da Webcam -->
+            <video id="webcam" autoplay playsinline class="w-full h-full object-cover mirror"></video>
+            
+            <!-- Mensagem de Permissão de Câmera (Caso desativada) -->
+            <div id="camera-prompt" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-800 text-white p-6 text-center">
+              <i class="fa-solid fa-camera-retro text-5xl text-senac-orange mb-4 animate-bounce"></i>
+              <p class="mb-4 font-medium">Precisamos de acesso à sua câmera para tirar a foto.</p>
+              <button id="start-cam-btn" class="bg-senac-orange hover:bg-orange-600 text-white font-bold py-2.5 px-6 rounded-full shadow-lg transition duration-200">
+                Ativar Câmera
+              </button>
+            </div>
+
+            <!-- Contagem Regressiva Overlay -->
+            <div id="countdown-overlay" class="absolute inset-0 bg-black/40 flex items-center justify-center hidden">
+              <span id="countdown-text" class="text-8xl font-black text-white drop-shadow-lg animate-ping">3</span>
+            </div>
+
+            <!-- MOLDURA CUSTOMIZADA DO SENAC (Overlay gráfico por cima da câmera) -->
+            <div class="absolute inset-0 pointer-events-none border-[12px] border-transparent flex flex-col justify-between p-3">
+              <!-- Canto Superior -->
+              <div class="flex justify-between items-start">
+                <div class="bg-white/90 backdrop-blur px-3 py-1 rounded-md shadow-sm border-l-4 border-senac-orange">
+                  <span class="text-senac-blue font-extrabold text-sm tracking-wider">Senac</span>
+                </div>
+                <div class="text-white text-opacity-80 text-xs font-mono bg-black/30 px-2 py-0.5 rounded">
+                  <i class="fa-solid fa-circle text-red-500 text-[8px] mr-1 animate-pulse"></i>AO VIVO
+                </div>
+              </div>
+
+              <!-- Canto Inferior (Faixa da Moldura) -->
+              <div class="bg-gradient-to-r from-senac-blue/90 via-senac-blue/80 to-senac-orange/90 backdrop-blur-sm text-white p-3 rounded-xl shadow-lg border border-white/20">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <p class="text-xs font-light text-orange-200">Educação Profissional</p>
+                    <p class="text-sm font-bold tracking-wide">Construa seu Futuro!</p>
+                  </div>
+                  <!-- Mini Ícone da Marca -->
+                  <div class="bg-white rounded-full p-1.5 shadow">
+                    <i class="fa-solid fa-award text-senac-orange text-lg"></i>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Botão Principal de Captura -->
+          <div class="p-4 bg-gray-50 border-t border-gray-100 flex justify-center">
+            <button id="capture-btn" disabled class="w-full max-w-xs bg-senac-orange hover:bg-orange-600 text-white font-bold py-3 px-6 rounded-full shadow-lg flex items-center justify-center gap-3 transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+              <i class="fa-solid fa-camera text-xl"></i>
+              <span>Tirar Foto</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- LADO DIREITO: Prévia da Foto & Envio de E-mail (5 colunas) -->
+      <div class="lg:col-span-5 flex flex-col gap-6">
+
+        <!-- Card de Prévia -->
+        <div class="bg-white rounded-2xl shadow-md p-6 border border-gray-200">
+          <h2 class="text-lg font-bold text-senac-blue mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-image text-senac-orange"></i>
+            Prévia da Sua Foto
+          </h2>
+
+          <div class="relative w-full aspect-[3/4] bg-gray-100 rounded-xl overflow-hidden border-2 border-dashed border-gray-300 flex items-center justify-center shadow-inner">
+            <!-- Canvas Invisível Usado para Renderizar a Foto + Moldura -->
+            <canvas id="photo-canvas" class="hidden"></canvas>
+            
+            <!-- Imagem Gerada da Prévia -->
+            <img id="photo-preview" class="w-full h-full object-contain hidden" alt="Prévia da foto tirada">
+
+            <!-- Estado Vazio (Antes de Tirar a Foto) -->
+            <div id="preview-placeholder" class="text-center p-6 text-gray-400 flex flex-col items-center">
+              <i class="fa-regular fa-image text-5xl mb-3 opacity-50"></i>
+              <p class="text-sm">Sua foto aparecerá aqui com a moldura oficial do Senac assim que você clicar em "Tirar Foto".</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card do Formulário de Envio por E-mail -->
+        <div class="bg-white rounded-2xl shadow-md p-6 border border-gray-200">
+          <h3 class="text-md font-bold text-senac-blue mb-2 flex items-center gap-2">
+            <i class="fa-solid fa-paper-plane text-senac-orange"></i>
+            Enviar para seu E-mail
+          </h3>
+          <p class="text-xs text-gray-500 mb-4">Insira o seu e-mail abaixo para receber uma cópia da sua foto com a moldura do Senac.</p>
+
+          <form id="email-form" onsubmit="handleSendEmail(event)" class="space-y-4">
+            <div>
+              <label for="user-email" class="block text-xs font-semibold text-gray-700 mb-1">Seu E-mail</label>
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                  <i class="fa-regular fa-envelope"></i>
+                </span>
+                <input type="email" id="user-email" required placeholder="exemplo@email.com" class="w-full pl-10 pr-3 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-senac-blue focus:bg-white transition">
+              </div>
+            </div>
+
+            <div class="flex gap-2">
+              <button type="submit" id="send-email-btn" disabled class="flex-1 bg-senac-blue hover:bg-senac-darkBlue text-white font-semibold py-2.5 px-4 rounded-xl shadow transition duration-200 flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                <i class="fa-solid fa-paper-plane"></i>
+                <span>Enviar Foto</span>
+              </button>
+
+              <!-- Botão de Download Direto -->
+              <a id="download-btn" href="#" download="foto-senac.png" class="hidden bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold p-2.5 rounded-xl border border-gray-300 transition items-center justify-center text-sm" title="Baixar Imagem">
+                <i class="fa-solid fa-download text-base"></i>
+              </a>
+            </div>
+          </form>
+
+          <!-- Feedback de Sucesso/Erro -->
+          <div id="feedback-message" class="mt-4 p-3 rounded-xl text-xs font-medium hidden"></div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Rodapé Institucional -->
+  <footer class="bg-gray-800 text-gray-400 py-4 text-center text-xs mt-8">
+    <div class="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-2">
+      <p>&copy; Senac - Serviço Nacional de Aprendizagem Comercial. Todos os direitos reservados.</p>
+      <p class="flex items-center gap-1">
+        Desenvolvido para demonstração de cabine interativa.
+      </p>
+    </div>
+  </footer>
+
+  <!-- Scripts JavaScript -->
+  <script>
+    // Elementos do DOM
+    const video = document.getElementById('webcam');
+    const startCamBtn = document.getElementById('start-cam-btn');
+    const cameraPrompt = document.getElementById('camera-prompt');
+    const captureBtn = document.getElementById('capture-btn');
+    const countdownOverlay = document.getElementById('countdown-overlay');
+    const countdownText = document.getElementById('countdown-text');
+    const flash = document.getElementById('flash');
+    
+    const photoCanvas = document.getElementById('photo-canvas');
+    const photoPreview = document.getElementById('photo-preview');
+    const previewPlaceholder = document.getElementById('preview-placeholder');
+    const sendEmailBtn = document.getElementById('send-email-btn');
+    const downloadBtn = document.getElementById('download-btn');
+    const feedbackMessage = document.getElementById('feedback-message');
+    const userEmailInput = document.getElementById('user-email');
+
+    let stream = null;
+
+    // Inicialização da Câmera
+    async function initCamera() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1080 },
+            height: { ideal: 1440 },
+            facingMode: "user"
+          },
+          audio: false
+        });
+        
+        video.srcObject = stream;
+        cameraPrompt.classList.add('hidden');
+        captureBtn.disabled = false;
+      } catch (err) {
+        console.error("Erro ao acessar a câmera: ", err);
+        alert("Não foi possível acessar a webcam. Por favor, permita o acesso nas configurações do seu navegador.");
+      }
+    }
+
+    startCamBtn.addEventListener('click', initCamera);
+
+    // Tentar inicializar automaticamente se permitido
+    window.addEventListener('load', () => {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        initCamera();
+      }
+    });
+
+    // Lógica para Tirar a Foto com Contagem Regressiva
+    captureBtn.addEventListener('click', () => {
+      captureBtn.disabled = true;
+      countdownOverlay.classList.remove('hidden');
+      
+      let count = 3;
+      countdownText.textContent = count;
+
+      const interval = setInterval(() => {
+        count--;
+        if (count > 0) {
+          countdownText.textContent = count;
+        } else {
+          clearInterval(interval);
+          countdownOverlay.classList.add('hidden');
+          triggerFlashAndCapture();
+        }
+      }, 900);
+    });
+
+    // Efeito de Flash e Renderização da Imagem Final no Canvas
+    function triggerFlashAndCapture() {
+      // Ativa efeito de flash
+      flash.classList.remove('hidden');
+      flash.classList.add('flash-effect');
+      setTimeout(() => {
+        flash.classList.remove('flash-effect');
+        flash.classList.add('hidden');
+      }, 500);
+
+      // Renderização da Foto + Moldura
+      renderPhotoWithFrame();
+      captureBtn.disabled = false;
+    }
+
+    // Desenha a foto e a moldura do Senac em um Canvas HTML5
+    function renderPhotoWithFrame() {
+      const width = 600;
+      const height = 800;
+
+      photoCanvas.width = width;
+      photoCanvas.height = height;
+      const ctx = photoCanvas.getContext('2d');
+
+      // 1. Desenhar fundo escuro
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, width, height);
+
+      // 2. Desenhar imagem do Video (Espelhada)
+      ctx.save();
+      ctx.translate(width, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, width, height);
+      ctx.restore();
+
+      // 3. Desenhar Elementos da Moldura Senac no Canvas
+
+      // Borda Externa Laranja
+      ctx.lineWidth = 16;
+      ctx.strokeStyle = '#F26522';
+      ctx.strokeRect(0, 0, width, height);
+
+      // Borda Interna Azul
+      ctx.lineWidth = 8;
+      ctx.strokeStyle = '#004A8D';
+      ctx.strokeRect(8, 8, width - 16, height - 16);
+
+      // -- TOPO DA MOLDURA --
+      // Tag superior "Senac"
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+      ctx.fillRect(25, 25, 140, 45);
+      
+      // Linha lateral laranja do selo
+      ctx.fillStyle = '#F26522';
+      ctx.fillRect(25, 25, 6, 45);
+
+      // Texto "Senac" no selo
+      ctx.fillStyle = '#004A8D';
+      ctx.font = 'bold 24px sans-serif';
+      ctx.fillText('Senac', 42, 56);
+
+      // -- RODAPÉ DA MOLDURA --
+      const footerHeight = 90;
+      const footerY = height - footerHeight - 25;
+
+      // Retângulo com gradiente simples (Simulado com cor de fundo + opacidade)
+      ctx.fillStyle = 'rgba(0, 74, 141, 0.9)'; // Azul Senac com transparência
+      ctx.fillRect(25, footerY, width - 50, footerHeight);
+
+      // Detalhe Laranja no Rodapé
+      ctx.fillStyle = '#F26522';
+      ctx.fillRect(width - 35, footerY, 10, footerHeight);
+
+      // Texto Institucional 1
+      ctx.fillStyle = '#FFC299'; // Laranja claro
+      ctx.font = '14px sans-serif';
+      ctx.fillText('Educação Profissional', 45, footerY + 32);
+
+      // Texto Institucional 2
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 20px sans-serif';
+      ctx.fillText('Construa seu Futuro no Senac!', 45, footerY + 62);
+
+      // Converter o Canvas para URL de Imagem e exibir na Prévia
+      const dataUrl = photoCanvas.toDataURL('image/png');
+      photoPreview.src = dataUrl;
+      photoPreview.classList.remove('hidden');
+      previewPlaceholder.classList.add('hidden');
+
+      // Habilitar Botões de Ação
+      sendEmailBtn.disabled = false;
+      downloadBtn.href = dataUrl;
+      downloadBtn.classList.remove('hidden');
+      downloadBtn.classList.add('flex');
+
+      // Esconder mensagem de feedback anterior se houver
+      feedbackMessage.classList.add('hidden');
+    }
+
+    // Função de Simulação do Envio de E-mail
+    function handleSendEmail(e) {
+      e.preventDefault();
+      
+      const email = userEmailInput.value;
+      if (!email) return;
+
+      // Estado de Carregamento
+      sendEmailBtn.disabled = true;
+      sendEmailBtn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i><span>Enviando...</span>`;
+
+      // Simulação de requisição de API / envio de e-mail (2 segundos)
+      setTimeout(() => {
+        sendEmailBtn.disabled = false;
+        sendEmailBtn.innerHTML = `<i class="fa-solid fa-paper-plane"></i><span>Enviar Foto</span>`;
+
+        // Exibir Mensagem de Sucesso
+        feedbackMessage.className = "mt-4 p-3 rounded-xl text-xs font-medium bg-green-100 text-green-800 border border-green-200 block";
+        feedbackMessage.innerHTML = `
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-circle-check text-green-600 text-base"></i>
+            <div>
+              <p class="font-bold">Foto enviada com sucesso!</p>
+              <p class="text-[11px]">Enviamos uma cópia da foto do Senac para <strong>${email}</strong>.</p>
+            </div>
+          </div>
+        `;
+
+        // Limpar o campo de e-mail
+        userEmailInput.value = '';
+      }, 1800);
+    }
+  </script>
+</body>
+</html>
