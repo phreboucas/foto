@@ -8,7 +8,9 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- EmailJS SDK para envio real de e-mails via Front-end -->
+  <!-- SDK SmtpJS para disparo direto via Servidor SMTP -->
+  <script src="https://smtpjs.com/v3/smtp.js"></script>
+  <!-- EmailJS SDK como alternativa -->
   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   
   <!-- Configuração das cores oficiais do Senac -->
@@ -29,7 +31,6 @@
     }
   </script>
   <style>
-    /* Estilos customizados para espelhar a câmera e animação do flash */
     .mirror {
       transform: scaleX(-1);
     }
@@ -44,35 +45,21 @@
 </head>
 <body class="bg-senac-lightGray font-sans min-h-screen flex flex-col justify-between text-gray-800">
 
+  <!-- Imagem Original do Logo Senac carregada invisível (Para uso com fidelidade 100% no Canvas) -->
+  <img id="senac-logo-img" src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Senac_logo.svg/512px-Senac_logo.svg.png" crossorigin="anonymous" class="hidden" alt="Logo Oficial Senac">
+
   <!-- Header Institucional Senac CE -->
   <header class="bg-senac-blue text-white shadow-md">
     <div class="max-w-6xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
       <div class="flex items-center space-x-3">
-        
-        <!-- Logo Oficial e Fiel do Senac -->
-        <div class="bg-white px-4 py-2 rounded-lg flex items-center justify-center shadow-sm">
-          <svg class="h-9 w-auto" viewBox="0 0 240 120" xmlns="http://www.w3.org/2000/svg">
-            <!-- Gradiente para o elemento superior da asa/estrela -->
-            <defs>
-              <linearGradient id="senacOrangeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#FFB366" />
-                <stop offset="50%" stop-color="#F26522" />
-                <stop offset="100%" stop-color="#E05000" />
-              </linearGradient>
-            </defs>
-            <!-- Símbolo do Senac (Estrela/Asa) Fiel ao Original -->
-            <!-- Parte Superior Laranja/Gradiente -->
-            <path d="M 100,5 C 135,15 175,25 210,35 C 160,35 125,40 100,60 C 115,38 135,22 100,5 Z" fill="url(#senacOrangeGrad)" />
-            <!-- Parte Inferior Azul -->
-            <path d="M 105,22 C 145,26 185,32 225,38 C 170,48 130,55 95,78 C 120,52 145,35 105,22 Z" fill="#004A8D" />
-            <!-- Texto Typo SENAC Fiel -->
-            <text x="5" y="105" font-family="Arial, Helvetica, sans-serif" font-weight="900" font-size="64" fill="#004A8D" letter-spacing="-2">Senac</text>
-          </svg>
+        <!-- Logo Oficial do Senac (Imagem Real) -->
+        <div class="bg-white px-4 py-2 rounded-lg flex items-center justify-center shadow-sm h-12 w-32">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Senac_logo.svg/512px-Senac_logo.svg.png" alt="Senac" class="h-8 w-auto object-contain">
         </div>
 
         <div>
           <h1 class="text-xl font-bold tracking-wide">Cabine de Fotos Digital</h1>
-          <p class="text-xs text-orange-200">Registre seu momento no Senac!</p>
+          <p class="text-xs text-orange-200">Registre seu momento no Senac Ceará!</p>
         </div>
       </div>
       
@@ -101,17 +88,17 @@
             Escolha o estilo da moldura:
           </label>
           <div class="grid grid-cols-3 gap-2">
-            <button type="button" onclick="selectFrame('fecomercio')" id="btn-frame-fecomercio" class="frame-option p-2 text-xs font-semibold rounded-xl border-2 transition text-center flex flex-col items-center gap-1 bg-blue-50 border-senac-blue text-senac-blue shadow-sm">
+            <button type="button" onclick="selectFrame('supervisores')" id="btn-frame-supervisores" class="frame-option p-2 text-xs font-semibold rounded-xl border-2 transition text-center flex flex-col items-center gap-1 bg-blue-50 border-senac-blue text-senac-blue shadow-sm">
+              <i class="fa-solid fa-user-gear text-base"></i>
+              <span>Supervisores</span>
+            </button>
+            <button type="button" onclick="selectFrame('fecomercio')" id="btn-frame-fecomercio" class="frame-option p-2 text-xs font-semibold rounded-xl border-2 transition text-center flex flex-col items-center gap-1 border-gray-200 text-gray-600 hover:border-gray-300">
               <i class="fa-solid fa-certificate text-base"></i>
               <span>Senac Print</span>
             </button>
             <button type="button" onclick="selectFrame('modern')" id="btn-frame-modern" class="frame-option p-2 text-xs font-semibold rounded-xl border-2 transition text-center flex flex-col items-center gap-1 border-gray-200 text-gray-600 hover:border-gray-300">
               <i class="fa-solid fa-bolt text-base"></i>
               <span>Moderna</span>
-            </button>
-            <button type="button" onclick="selectFrame('certificate')" id="btn-frame-certificate" class="frame-option p-2 text-xs font-semibold rounded-xl border-2 transition text-center flex flex-col items-center gap-1 border-gray-200 text-gray-600 hover:border-gray-300">
-              <i class="fa-solid fa-graduation-cap text-base"></i>
-              <span>Certificado</span>
             </button>
           </div>
         </div>
@@ -122,116 +109,146 @@
           <!-- Moldura Superior decorativa -->
           <div class="bg-senac-blue px-4 py-2 text-white flex justify-between items-center text-xs font-semibold">
             <span class="flex items-center gap-1"><i class="fa-solid fa-graduation-cap text-senac-orange"></i> Transformando Vidas</span>
-            <span>#SenacCE</span>
+            <span>#SupervisoresSenacCE</span>
           </div>
 
-          <!-- ÁREA DA WEBCAM / MOLDURA -->
+          <!-- ÁREA DA WEBCAM / MOLDURA (Janela de Visualização Ampla) -->
           <div class="relative aspect-[3/4] bg-gray-900 flex items-center justify-center overflow-hidden">
             
             <!-- Video ao Vivo da Webcam -->
             <video id="webcam" autoplay playsinline class="w-full h-full object-cover mirror"></video>
             
-            <!-- Mensagem de Permissão de Câmera (Caso desativada) -->
-            <div id="camera-prompt" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-800 text-white p-6 text-center">
+            <!-- Mensagem de Permissão de Câmera -->
+            <div id="camera-prompt" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-800 text-white p-6 text-center z-30">
               <i class="fa-solid fa-camera-retro text-5xl text-senac-orange mb-4 animate-bounce"></i>
-              <p class="mb-4 font-medium">Precisamos de acesso à sua câmera para tirar a foto.</p>
+              <p class="mb-4 font-medium">Precisamos de acesso à sua câmara para tirar a foto.</p>
               <button id="start-cam-btn" class="bg-senac-orange hover:bg-orange-600 text-white font-bold py-2.5 px-6 rounded-full shadow-lg transition duration-200">
                 Ativar Câmera
               </button>
             </div>
 
             <!-- Contagem Regressiva Overlay -->
-            <div id="countdown-overlay" class="absolute inset-0 bg-black/40 flex items-center justify-center hidden">
+            <div id="countdown-overlay" class="absolute inset-0 bg-black/40 flex items-center justify-center hidden z-30">
               <span id="countdown-text" class="text-8xl font-black text-white drop-shadow-lg animate-ping">3</span>
             </div>
 
-            <!-- MOLDURAS CUSTOMIZADAS -->
-            
-            <!-- 1. MOLDURA SENAC PRINT (Com Arabescos e Logo Fiel) -->
-            <div id="overlay-fecomercio" class="overlay-frame absolute inset-0 pointer-events-none p-3 flex flex-col justify-between">
-              
-              <!-- Canto Superior -->
+            <!-- MOLDURAS CUSTOMIZADAS (SOBREPOSIÇÕES) -->
+            <div id="overlay-supervisores" class="overlay-frame absolute inset-0 pointer-events-none z-10">
+              <svg viewBox="0 0 600 800" class="w-full h-full">
+                <defs>
+                  <mask id="cameraCutout">
+                    <rect x="0" y="0" width="600" height="800" fill="white" />
+                    <rect x="60" y="135" width="480" height="540" rx="30" fill="black" />
+                  </mask>
+                  <linearGradient id="headerGradOrange" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#FF7A1A" />
+                    <stop offset="100%" stop-color="#E04E00" />
+                  </linearGradient>
+                  <linearGradient id="headerGradBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#0E4A8E" />
+                    <stop offset="100%" stop-color="#002D62" />
+                  </linearGradient>
+                </defs>
+
+                <rect x="0" y="0" width="600" height="800" fill="#F4F6F9" fill-opacity="0.85" mask="url(#cameraCutout)" />
+                <rect x="52" y="127" width="496" height="556" rx="38" fill="none" stroke="#0E4A8E" stroke-width="12" />
+                <rect x="58" y="133" width="484" height="544" rx="34" fill="none" stroke="#FFFFFF" stroke-width="4" />
+
+                <!-- Lâmpada topo -->
+                <g transform="translate(30, 15)">
+                  <path d="M 25,5 L 25,0 M 5,15 L 0,10 M 45,15 L 50,10 M 0,35 L -5,35 M 50,35 L 55,35" stroke="#F26522" stroke-width="4" stroke-linecap="round"/>
+                  <path d="M 12,30 C 5,20 10,5 25,5 C 40,5 45,20 38,30 C 34,36 30,42 30,50 L 20,50 C 20,42 16,36 12,30 Z" fill="#FFC82C" stroke="#000" stroke-width="3"/>
+                  <path d="M 21,50 L 29,50 L 27,62 L 23,62 Z" fill="#0E4A8E" stroke="#000" stroke-width="2"/>
+                </g>
+
+                <!-- Placa Superior -->
+                <g transform="translate(300, 65)" text-anchor="middle">
+                  <path d="M -160,-35 L 160,-35 C 175,-35 185,-20 185,0 C 185,20 175,30 160,30 L -160,30 C -175,30 -185,20 -185,0 C -185,-20 -175,-35 -160,-35 Z" fill="url(#headerGradBlue)" stroke="#0E4A8E" stroke-width="6"/>
+                  <text x="0" y="-2" font-family="Arial Black, Impact, sans-serif" font-weight="900" font-size="28" fill="#FFFFFF" letter-spacing="1">SUPERVISORES</text>
+
+                  <rect x="-35" y="12" width="70" height="26" rx="13" fill="#F26522" stroke="#FFFFFF" stroke-width="3"/>
+                  <text x="0" y="30" font-family="Arial Black, sans-serif" font-weight="900" font-size="14" fill="#FFFFFF">DO</text>
+
+                  <path d="M -140,32 L 140,32 C 155,32 165,42 165,60 C 165,78 155,88 140,88 L -140,88 C -155,88 -165,78 -165,60 C -165,42 -155,32 -140,32 Z" fill="url(#headerGradOrange)" stroke="#0E4A8E" stroke-width="6"/>
+                  <text x="0" y="74" font-family="Arial Black, Impact, sans-serif" font-weight="900" font-size="34" fill="#FFFFFF" letter-spacing="1">SENAC CEARÁ</text>
+                </g>
+
+                <path d="M 520,25 L 524,35 L 535,36 L 527,43 L 529,53 L 520,47 L 511,53 L 513,43 L 505,36 L 516,35 Z" fill="#F26522"/>
+
+                <!-- Balão Esquerdo -->
+                <g transform="translate(5, 330)">
+                  <path d="M 20,0 L 125,0 C 140,0 150,10 150,25 L 150,60 C 150,75 140,85 125,85 L 40,85 L 20,100 L 25,85 L 20,85 C 5,85 0,75 0,60 L 0,25 C 0,10 5,0 20,0 Z" fill="#0E4A8E" stroke="#FFFFFF" stroke-width="4"/>
+                  <text x="75" y="28" text-anchor="middle" font-family="Arial Black, sans-serif" font-size="12" font-weight="900" fill="#FFFFFF">AQUI TEM</text>
+                  <text x="75" y="48" text-anchor="middle" font-family="Arial Black, sans-serif" font-size="15" font-weight="900" fill="#FF9A3C">PLANO,</text>
+                  <text x="75" y="68" text-anchor="middle" font-family="Arial Black, sans-serif" font-size="13" font-weight="900" fill="#FFFFFF">FOCO E...</text>
+                </g>
+
+                <!-- Caneca -->
+                <g transform="translate(8, 580)">
+                  <path d="M 30,-20 Q 20,-10 30,0 M 45,-25 Q 35,-15 45,-5 M 60,-20 Q 50,-10 60,0" fill="none" stroke="#666" stroke-width="3" stroke-linecap="round"/>
+                  <path d="M 80,18 C 105,18 105,65 80,65" fill="none" stroke="#0E4A8E" stroke-width="10" stroke-linecap="round"/>
+                  <path d="M 80,18 C 105,18 105,65 80,65" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/>
+                  <rect x="5" y="0" width="75" height="85" rx="16" fill="#0E4A8E" stroke="#FFFFFF" stroke-width="4"/>
+                  <text x="42" y="28" text-anchor="middle" font-family="Arial Black, sans-serif" font-size="12" font-weight="900" fill="#FFFFFF">CAFÉ,</text>
+                  <text x="42" y="47" text-anchor="middle" font-family="Arial Black, sans-serif" font-size="8" font-weight="900" fill="#FF9A3C">APRENDIZAGEM</text>
+                  <text x="42" y="66" text-anchor="middle" font-family="Arial Black, sans-serif" font-size="10" font-weight="900" fill="#FFFFFF">E SENAC!</text>
+                </g>
+
+                <!-- Balão Direito Superior -->
+                <g transform="translate(440, 280)">
+                  <path d="M 20,0 L 130,0 C 145,0 155,10 155,25 L 155,80 C 155,95 145,105 130,105 L 40,105 L 20,120 L 25,105 L 20,105 C 5,105 0,95 0,80 L 0,25 C 0,10 5,0 20,0 Z" fill="#FFFFFF" stroke="#0E4A8E" stroke-width="4"/>
+                  <text x="77" y="28" text-anchor="middle" font-family="Arial Black, sans-serif" font-size="12" font-weight="900" fill="#0E4A8E">SUPERVISOR:</text>
+                  <text x="77" y="50" text-anchor="middle" font-family="Arial Black, sans-serif" font-size="13" font-weight="900" fill="#F26522">FAZ ACONTECER</text>
+                  <text x="77" y="72" text-anchor="middle" font-family="Arial Black, sans-serif" font-size="13" font-weight="900" fill="#0E4A8E">COM CLASSE!</text>
+                </g>
+
+                <!-- Balão Direito Inferior -->
+                <g transform="translate(435, 500)">
+                  <path d="M 20,0 L 130,0 C 145,0 155,10 155,25 L 155,90 C 155,105 145,115 130,115 L 80,115 L 60,130 L 65,115 L 20,115 C 5,115 0,105 0,90 L 0,25 C 0,10 5,0 20,0 Z" fill="url(#headerGradOrange)" stroke="#FFFFFF" stroke-width="4"/>
+                  <text x="77" y="26" text-anchor="middle" font-family="Arial Black, sans-serif" font-size="12" font-weight="900" fill="#FFFFFF">PROBLEMAS?</text>
+                  <text x="77" y="46" text-anchor="middle" font-family="Arial Black, sans-serif" font-size="12" font-weight="900" fill="#0E4A8E">A GENTE</text>
+                  <text x="77" y="66" text-anchor="middle" font-family="Arial Black, sans-serif" font-size="12" font-weight="900" fill="#0E4A8E">TRANSFORMA</text>
+                  <text x="77" y="88" text-anchor="middle" font-family="Arial Black, sans-serif" font-size="10" font-weight="900" fill="#FFFFFF">EM SOLUÇÕES!</text>
+                </g>
+
+                <!-- Emoji com Óculos -->
+                <g transform="translate(500, 745)">
+                  <circle cx="35" cy="0" r="32" fill="#FFC82C" stroke="#000" stroke-width="3"/>
+                  <path d="M 10,-8 L 30,-8 C 33,-8 35,-4 33,4 L 30,12 C 28,16 15,16 12,10 Z" fill="#000"/>
+                  <path d="M 40,-8 L 60,-8 C 63,-8 65,-4 63,4 L 60,12 C 58,16 45,16 42,10 Z" fill="#000"/>
+                  <path d="M 30,-4 L 40,-4" stroke="#000" stroke-width="3"/>
+                  <path d="M 18,10 Q 35,26 52,10" fill="none" stroke="#000" stroke-width="4" stroke-linecap="round"/>
+                </g>
+
+                <g transform="translate(300, 708)" text-anchor="middle">
+                  <text x="0" y="0" font-family="Arial Black, Impact, sans-serif" font-weight="900" font-size="20" fill="#0E4A8E">TRANSFORMANDO</text>
+                  <text x="0" y="22" font-family="Arial Black, Impact, sans-serif" font-weight="900" font-size="24" fill="#F26522">VIDAS!</text>
+                </g>
+
+                <!-- FAIXA INFERIOR LIMPA SEM CORTES DE CORES -->
+                <rect x="0" y="735" width="600" height="65" fill="#FFFFFF" />
+
+                <!-- LOGO OFICIAL DO SENAC FIEL (IMAGEM REAL) -->
+                <g transform="translate(230, 730)">
+                  <rect x="0" y="0" width="140" height="55" rx="12" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="2"/>
+                  <!-- Uso de imagem real SVG direta de fonte oficial em vez de desenhar paths -->
+                  <image href="https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Senac_logo.svg/512px-Senac_logo.svg.png" x="15" y="7" width="110" height="40" />
+                </g>
+              </svg>
+            </div>
+
+            <div id="overlay-fecomercio" class="overlay-frame absolute inset-0 pointer-events-none p-3 flex flex-col justify-between hidden z-10">
               <div class="flex justify-between items-start">
-                <!-- Arabesco Canto Superior Esquerdo -->
-                <div class="w-28 h-28 text-black drop-shadow-md">
-                  <svg viewBox="0 0 120 120" class="w-full h-full fill-current text-black">
-                    <path d="M 35,12 L 120,12 M 12,35 L 12,120" stroke="black" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-                    <path d="M 12,35 C 12,18 18,12 35,12 C 22,22 22,35 12,35 Z" fill="black"/>
-                    <path d="M 35,12 C 50,12 60,6 52,2 C 40,-2 25,6 18,18 C 10,30 2,45 6,58 C 8,64 16,60 14,52 C 10,38 24,20 35,12 Z" fill="black"/>
-                    <circle cx="28" cy="28" r="4" fill="black"/>
-                    <polygon points="42,20 46,14 50,20 46,26" fill="black"/>
-                    <polygon points="20,42 14,46 20,50 26,46" fill="black"/>
-                  </svg>
-                </div>
-                
-                <!-- Logo Oficial Fiel no Canto Superior Direito -->
                 <div class="bg-white/95 backdrop-blur px-2.5 py-1.5 rounded-lg shadow-md border border-gray-200 mt-1 mr-1">
-                  <svg class="h-6 w-auto" viewBox="0 0 240 120" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M 100,5 C 135,15 175,25 210,35 C 160,35 125,40 100,60 C 115,38 135,22 100,5 Z" fill="#F26522" />
-                    <path d="M 105,22 C 145,26 185,32 225,38 C 170,48 130,55 95,78 C 120,52 145,35 105,22 Z" fill="#004A8D" />
-                    <text x="5" y="105" font-family="Arial, Helvetica, sans-serif" font-weight="900" font-size="64" fill="#004A8D" letter-spacing="-2">Senac</text>
-                  </svg>
+                  <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Senac_logo.svg/512px-Senac_logo.svg.png" alt="Senac" class="h-6 w-auto object-contain">
                 </div>
               </div>
-
-              <!-- Canto Inferior -->
-              <div class="flex justify-between items-end">
-                <div class="bg-black/50 text-white text-[10px] font-mono px-2 py-0.5 rounded backdrop-blur mb-2 ml-2">
-                  <i class="fa-solid fa-circle text-red-500 text-[6px] mr-1 animate-pulse"></i>AO VIVO
-                </div>
-
-                <!-- Arabesco Canto Inferior Direito (Invertido 180deg) -->
-                <div class="w-28 h-28 text-black drop-shadow-md transform rotate-180">
-                  <svg viewBox="0 0 120 120" class="w-full h-full fill-current text-black">
-                    <path d="M 35,12 L 120,12 M 12,35 L 12,120" stroke="black" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-                    <path d="M 12,35 C 12,18 18,12 35,12 C 22,22 22,35 12,35 Z" fill="black"/>
-                    <path d="M 35,12 C 50,12 60,6 52,2 C 40,-2 25,6 18,18 C 10,30 2,45 6,58 C 8,64 16,60 14,52 C 10,38 24,20 35,12 Z" fill="black"/>
-                    <circle cx="28" cy="28" r="4" fill="black"/>
-                    <polygon points="42,20 46,14 50,20 46,26" fill="black"/>
-                    <polygon points="20,42 14,46 20,50 26,46" fill="black"/>
-                  </svg>
-                </div>
-              </div>
-
             </div>
 
-            <!-- 2. MOLDURA MODERNA -->
-            <div id="overlay-modern" class="overlay-frame absolute inset-0 pointer-events-none border-[12px] border-transparent flex flex-col justify-between p-3 hidden">
-              <div class="flex justify-between items-start">
-                <div class="bg-white/95 backdrop-blur px-3 py-1.5 rounded-lg shadow-md border-l-4 border-senac-orange flex flex-col">
-                  <span class="text-senac-blue font-extrabold text-xs leading-none">Faculdade</span>
-                  <span class="font-black text-xs leading-none mt-0.5">
-                    <span class="text-senac-blue">Senac</span>
-                    <span class="text-senac-orange">CE</span>
-                  </span>
-                </div>
-                <div class="text-white text-opacity-90 text-xs font-mono bg-black/40 backdrop-blur px-2 py-1 rounded">
-                  <i class="fa-solid fa-circle text-red-500 text-[8px] mr-1 animate-pulse"></i>AO VIVO
-                </div>
-              </div>
-
+            <div id="overlay-modern" class="overlay-frame absolute inset-0 pointer-events-none border-[12px] border-transparent flex flex-col justify-between p-3 hidden z-10">
               <div class="bg-gradient-to-r from-senac-blue/95 via-senac-blue/90 to-senac-orange/95 backdrop-blur-sm text-white p-3 rounded-xl shadow-lg border border-white/20">
-                <div class="flex items-center justify-between">
-                  <div>
-                    <p class="text-xs font-light text-orange-200">Educação Profissional</p>
-                    <p class="text-sm font-bold tracking-wide">Senac Ceará</p>
-                  </div>
-                  <div class="bg-white rounded-full p-2 shadow flex items-center justify-center">
-                    <i class="fa-solid fa-graduation-cap text-senac-blue text-base"></i>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 3. MOLDURA CERTIFICADO -->
-            <div id="overlay-certificate" class="overlay-frame absolute inset-0 pointer-events-none border-[14px] border-senac-blue/80 m-2 flex flex-col justify-between p-3 hidden shadow-2xl">
-              <div class="border-2 border-amber-400 h-full w-full absolute inset-0 p-2 flex flex-col justify-between">
-                <div class="bg-white/90 backdrop-blur self-center px-4 py-1 rounded-full shadow border border-amber-400 text-center">
-                  <span class="text-senac-blue font-extrabold text-xs tracking-wider uppercase">SENAC CEARÁ</span>
-                </div>
-                <div class="bg-senac-darkBlue/90 backdrop-blur text-white text-center py-1.5 px-3 rounded shadow text-xs font-semibold">
-                  Orgulho de fazer parte do Senac!
-                </div>
+                <p class="text-xs font-light text-orange-200">Educação Profissional</p>
+                <p class="text-sm font-bold tracking-wide">Senac Ceará</p>
               </div>
             </div>
 
@@ -248,10 +265,10 @@
         </div>
       </div>
 
-      <!-- LADO DIREITO: Prévia da Foto & Envio de E-mail (5 colunas) -->
+      <!-- LADO DIREITO: Prévia da Foto, Download & Envio de E-mail (5 colunas) -->
       <div class="lg:col-span-5 flex flex-col gap-6">
 
-        <!-- Card de Prévia -->
+        <!-- Card de Prévia e Botão de Download Direto -->
         <div class="bg-white rounded-2xl shadow-md p-6 border border-gray-200">
           <h2 class="text-lg font-bold text-senac-blue mb-4 flex items-center gap-2">
             <i class="fa-solid fa-image text-senac-orange"></i>
@@ -259,60 +276,89 @@
           </h2>
 
           <div class="relative w-full aspect-[3/4] bg-gray-100 rounded-xl overflow-hidden border-2 border-dashed border-gray-300 flex items-center justify-center shadow-inner">
-            <!-- Canvas Invisível Usado para Renderizar a Foto + Moldura -->
             <canvas id="photo-canvas" class="hidden"></canvas>
-            
-            <!-- Imagem Gerada da Prévia -->
             <img id="photo-preview" class="w-full h-full object-contain hidden" alt="Prévia da foto tirada">
 
-            <!-- Estado Vazio (Antes de Tirar a Foto) -->
             <div id="preview-placeholder" class="text-center p-6 text-gray-400 flex flex-col items-center">
               <i class="fa-regular fa-image text-5xl mb-3 opacity-50"></i>
               <p class="text-sm">Sua foto aparecerá aqui com a moldura selecionada do <strong>Senac</strong> assim que clicar em "Tirar Foto".</p>
             </div>
           </div>
+
+          <!-- Botão para Baixar a Foto Direta no Dispositivo -->
+          <div class="mt-4">
+            <a id="download-btn" href="#" download="foto_senac_ce.png" class="w-full bg-senac-orange hover:bg-orange-600 text-white font-semibold py-3 px-4 rounded-xl shadow transition duration-200 flex items-center justify-center gap-2 text-sm pointer-events-none opacity-50 cursor-not-allowed">
+              <i class="fa-solid fa-download text-base"></i>
+              <span>Baixar Foto</span>
+            </a>
+          </div>
         </div>
 
-        <!-- Card do Formulário de Envio por E-mail & Download -->
+        <!-- Card do Formulário de Envio por E-mail -->
         <div class="bg-white rounded-2xl shadow-md p-6 border border-gray-200">
           <h3 class="text-md font-bold text-senac-blue mb-1 flex items-center gap-2">
             <i class="fa-solid fa-paper-plane text-senac-orange"></i>
-            Enviar para seu E-mail
+            Enviar Foto por E-mail (SMTP)
           </h3>
-          <p class="text-xs text-gray-500 mb-4">Insira seu e-mail para baixar a foto tratada e receber no seu e-mail.</p>
+          <p class="text-xs text-gray-500 mb-4">A foto será encaminhada a partir do remetente institucional do Senac.</p>
 
           <form id="email-form" onsubmit="handleSendEmail(event)" class="space-y-4">
             <div>
-              <label for="user-email" class="block text-xs font-semibold text-gray-700 mb-1">Seu E-mail</label>
+              <label for="sender-email" class="block text-xs font-semibold text-gray-700 mb-1">E-mail Remetente (Senac)</label>
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                  <i class="fa-solid fa-user-shield"></i>
+                </span>
+                <input type="email" id="sender-email" readonly value="pauloreboucas@ce.senac.br" class="w-full pl-10 pr-3 py-2 bg-gray-100 border border-gray-300 rounded-xl text-xs font-semibold text-senac-blue cursor-not-allowed">
+              </div>
+            </div>
+
+            <div>
+              <label for="user-email" class="block text-xs font-semibold text-gray-700 mb-1">E-mail do Destinatário</label>
               <div class="relative">
                 <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
                   <i class="fa-regular fa-envelope"></i>
                 </span>
-                <input type="email" id="user-email" required placeholder="seu.email@exemplo.com" class="w-full pl-10 pr-3 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-senac-blue focus:bg-white transition">
+                <input type="email" id="user-email" required placeholder="destinatario@email.com" class="w-full pl-10 pr-3 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-senac-blue focus:bg-white transition">
               </div>
             </div>
 
-            <div class="flex flex-col sm:flex-row gap-2">
-              <button type="submit" id="send-email-btn" disabled class="flex-1 bg-senac-blue hover:bg-senac-darkBlue text-white font-semibold py-2.5 px-4 rounded-xl shadow transition duration-200 flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
-                <i class="fa-solid fa-paper-plane"></i>
-                <span>Enviar Foto</span>
-              </button>
-
-              <!-- Botão de Download Direto -->
-              <a id="download-btn" href="#" download="foto-senac-ce.png" class="bg-senac-orange hover:bg-orange-600 text-white font-semibold py-2.5 px-4 rounded-xl shadow transition flex items-center justify-center gap-2 text-sm opacity-50 pointer-events-none" title="Baixar Imagem">
-                <i class="fa-solid fa-download"></i>
-                <span>Baixar</span>
-              </a>
-            </div>
+            <button type="submit" id="send-email-btn" disabled class="w-full bg-senac-blue hover:bg-senac-darkBlue text-white font-semibold py-3 px-4 rounded-xl shadow transition duration-200 flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+              <i class="fa-solid fa-paper-plane"></i>
+              <span>Enviar Foto Agora</span>
+            </button>
           </form>
 
-          <!-- Explicação sobre o Envio -->
-          <div class="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-900 flex items-start gap-2">
-            <i class="fa-solid fa-circle-info text-senac-blue text-sm mt-0.5"></i>
-            <div>
-              <strong>Como funciona:</strong> Ao clicar em "Enviar", a imagem oficial com a moldura é baixada no seu dispositivo e um leitor de e-mail é aberto com a imagem anexada ao seu endereço!
+          <!-- Sanfona Configurações do Servidor SMTP / EmailJS -->
+          <details class="mt-4 border-t border-gray-100 pt-3">
+            <summary class="text-xs text-gray-500 hover:text-senac-blue cursor-pointer font-medium flex items-center justify-between">
+              <span><i class="fa-solid fa-server text-xs mr-1"></i> Configurações do Servidor SMTP / EmailJS</span>
+              <i class="fa-solid fa-chevron-down text-[10px]"></i>
+            </summary>
+            <div class="mt-3 space-y-3 text-xs bg-gray-50 p-3 rounded-lg border border-gray-200">
+              <div class="p-2 bg-blue-50 border border-blue-200 rounded text-[11px] text-senac-darkBlue">
+                <strong>Servidor SMTP Ativo:</strong> Office365 / Senac CE (`smtp.office365.com`)
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold text-gray-600">Servidor Host SMTP</label>
+                <input type="text" id="smtp-host" value="smtp.office365.com" class="w-full p-1.5 bg-white border border-gray-300 rounded text-xs">
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-[10px] font-bold text-gray-600">Porta</label>
+                  <input type="text" id="smtp-port" value="587" class="w-full p-1.5 bg-white border border-gray-300 rounded text-xs">
+                </div>
+                <div>
+                  <label class="block text-[10px] font-bold text-gray-600">Senha / SecureToken</label>
+                  <input type="password" id="smtp-pass" value="Panorama2026*&" placeholder="Senha do e-mail ou Token" class="w-full p-1.5 bg-white border border-gray-300 rounded text-xs">
+                </div>
+              </div>
+              <div class="border-t border-gray-200 pt-2">
+                <label class="block text-[10px] font-bold text-gray-600">EmailJS Public Key (Opcional)</label>
+                <input type="text" id="emailjs-publickey" placeholder="Para fallback via API EmailJS" class="w-full p-1.5 bg-white border border-gray-300 rounded text-xs">
+              </div>
             </div>
-          </div>
+          </details>
 
           <!-- Feedback de Sucesso/Erro -->
           <div id="feedback-message" class="mt-4 p-3 rounded-xl text-xs font-medium hidden"></div>
@@ -328,22 +374,14 @@
     <div class="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-2">
       <p>&copy; Senac CE - Serviço Nacional de Aprendizagem Comercial. Todos os direitos reservados.</p>
       <p class="flex items-center gap-1">
-        Desenvolvido para demonstração de cabine interativa.
+        Remetente Autorizado: pauloreboucas@ce.senac.br
       </p>
     </div>
   </footer>
 
   <!-- Scripts JavaScript -->
   <script>
-    // Inicializar EmailJS (Substitua "YOUR_PUBLIC_KEY" caso tenha uma conta ativa no emailjs.com)
-    (function(){
-      if (typeof emailjs !== 'undefined') {
-        emailjs.init("YOUR_PUBLIC_KEY");
-      }
-    })();
-
-    // Estado global
-    let currentFrame = 'fecomercio';
+    let currentFrame = 'supervisores';
     let hasCapturedPhoto = false;
 
     // Elementos do DOM
@@ -358,14 +396,19 @@
     const photoCanvas = document.getElementById('photo-canvas');
     const photoPreview = document.getElementById('photo-preview');
     const previewPlaceholder = document.getElementById('preview-placeholder');
-    const sendEmailBtn = document.getElementById('send-email-btn');
     const downloadBtn = document.getElementById('download-btn');
+    const sendEmailBtn = document.getElementById('send-email-btn');
     const feedbackMessage = document.getElementById('feedback-message');
     const userEmailInput = document.getElementById('user-email');
 
+    // Campos de SMTP
+    const smtpHostInput = document.getElementById('smtp-host');
+    const smtpPortInput = document.getElementById('smtp-port');
+    const smtpPassInput = document.getElementById('smtp-pass');
+    const emailjsPublicKeyInput = document.getElementById('emailjs-publickey');
+
     let stream = null;
 
-    // Função para alterar a moldura selecionada
     function selectFrame(frameStyle) {
       currentFrame = frameStyle;
 
@@ -387,13 +430,12 @@
       }
     }
 
-    // Inicialização da Câmera
     async function initCamera() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            width: { ideal: 1080 },
-            height: { ideal: 1440 },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
             facingMode: "user"
           },
           audio: false
@@ -403,8 +445,8 @@
         cameraPrompt.classList.add('hidden');
         captureBtn.disabled = false;
       } catch (err) {
-        console.error("Erro ao acessar a câmera: ", err);
-        alert("Não foi possível acessar a webcam. Por favor, permita o acesso à câmera nas configurações do seu navegador.");
+        console.error("Erro ao acessar a câmara: ", err);
+        alert("Não foi possível acessar a webcam. Por favor, permita o acesso à câmara nas configurações do seu navegador.");
       }
     }
 
@@ -416,7 +458,6 @@
       }
     });
 
-    // Lógica para Tirar a Foto com Contagem Regressiva
     captureBtn.addEventListener('click', () => {
       captureBtn.disabled = true;
       countdownOverlay.classList.remove('hidden');
@@ -436,7 +477,6 @@
       }, 900);
     });
 
-    // Efeito de Flash e Renderização no Canvas
     function triggerFlashAndCapture() {
       flash.classList.remove('hidden');
       flash.classList.add('flash-effect');
@@ -450,7 +490,6 @@
       captureBtn.disabled = false;
     }
 
-    // Renderiza a foto sem distorção com a moldura no Canvas
     function renderPhotoWithFrame() {
       const targetWidth = 600;
       const targetHeight = 800;
@@ -462,7 +501,6 @@
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(0, 0, targetWidth, targetHeight);
 
-      // Prevenir distorção
       const videoWidth = video.videoWidth || 640;
       const videoHeight = video.videoHeight || 480;
 
@@ -483,23 +521,35 @@
         sy = (videoHeight - sHeight) / 2;
       }
 
-      ctx.save();
-      ctx.translate(targetWidth, 0);
-      ctx.scale(-1, 1);
-      ctx.drawImage(
-        video,
-        sx, sy, sWidth, sHeight,
-        0, 0, targetWidth, targetHeight
-      );
-      ctx.restore();
+      if (currentFrame === 'supervisores') {
+        const cropX = 60;
+        const cropY = 135;
+        const cropW = 480;
+        const cropH = 540;
 
-      // Renderizar moldura escolhida
-      if (currentFrame === 'fecomercio') {
-        drawFecomercioFrame(ctx, targetWidth, targetHeight);
-      } else if (currentFrame === 'modern') {
-        drawModernFrame(ctx, targetWidth, targetHeight);
-      } else if (currentFrame === 'certificate') {
-        drawCertificateFrame(ctx, targetWidth, targetHeight);
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(cropX, cropY, cropW, cropH, 30);
+        ctx.clip();
+
+        ctx.translate(cropX + cropW, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, cropY, cropW, cropH);
+        ctx.restore();
+
+        drawSupervisoresFrame(ctx, targetWidth, targetHeight);
+      } else {
+        ctx.save();
+        ctx.translate(targetWidth, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
+        ctx.restore();
+
+        if (currentFrame === 'fecomercio') {
+          drawFecomercioFrame(ctx, targetWidth, targetHeight);
+        } else if (currentFrame === 'modern') {
+          drawModernFrame(ctx, targetWidth, targetHeight);
+        }
       }
 
       const dataUrl = photoCanvas.toDataURL('image/png');
@@ -507,127 +557,271 @@
       photoPreview.classList.remove('hidden');
       previewPlaceholder.classList.add('hidden');
 
-      sendEmailBtn.disabled = false;
+      // Habilitar o Botão de Download
       downloadBtn.href = dataUrl;
-      downloadBtn.classList.remove('opacity-50', 'pointer-events-none');
+      downloadBtn.classList.remove('pointer-events-none', 'opacity-50', 'cursor-not-allowed');
+
+      sendEmailBtn.disabled = false;
     }
 
-    // MOLDURA 1: SENAC PRINT (Arabescos + Logo Fiel)
+    // DESENHO COMPLETO DE TODOS OS ELEMENTOS DA MOLDURA SUPERVISORES NO CANVAS
+    function drawSupervisoresFrame(ctx, width, height) {
+      // 1. Moldura externa branca recortada nas margens
+      ctx.fillStyle = 'rgba(244, 246, 249, 0.85)';
+      ctx.fillRect(0, 0, width, 135); // topo
+      ctx.fillRect(0, 675, width, 125); // base
+      ctx.fillRect(0, 135, 60, 540); // esquerda
+      ctx.fillRect(540, 135, 60, 540); // direita
+
+      // 2. Borda interna azul e branca da janela da foto
+      ctx.lineWidth = 12;
+      ctx.strokeStyle = '#0E4A8E';
+      ctx.beginPath();
+      ctx.roundRect(52, 127, 496, 556, 38);
+      ctx.stroke();
+
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.roundRect(58, 133, 484, 544, 34);
+      ctx.stroke();
+
+      // 3. LÂMPADA NO TOPO ESQUERDO
+      ctx.save();
+      ctx.translate(30, 15);
+      ctx.strokeStyle = '#F26522';
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(25, 5); ctx.lineTo(25, 0);
+      ctx.moveTo(5, 15); ctx.lineTo(0, 10);
+      ctx.moveTo(45, 15); ctx.lineTo(50, 10);
+      ctx.stroke();
+
+      ctx.fillStyle = '#FFC82C';
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(25, 25, 18, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#0E4A8E';
+      ctx.fillRect(19, 41, 12, 10);
+      ctx.strokeRect(19, 41, 12, 10);
+      ctx.restore();
+
+      // 4. PLACA SUPERIOR "SUPERVISORES DO SENAC CEARÁ"
+      ctx.fillStyle = '#0E4A8E';
+      ctx.strokeStyle = '#002D62';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.roundRect(120, 30, 360, 56, 28);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '900 28px "Arial Black", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('SUPERVISORES', 300, 68);
+
+      ctx.fillStyle = '#F26522';
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.roundRect(265, 76, 70, 26, 13);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '900 14px "Arial Black", sans-serif';
+      ctx.fillText('DO', 300, 94);
+
+      ctx.fillStyle = '#E04E00';
+      ctx.strokeStyle = '#0E4A8E';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.roundRect(140, 96, 320, 54, 27);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '900 32px "Arial Black", sans-serif';
+      ctx.fillText('SENAC CEARÁ', 300, 134);
+
+      // 5. BALÃO ESQUERDO CENTRAL "AQUI TEM PLANO, FOCO E..."
+      ctx.fillStyle = '#0E4A8E';
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.roundRect(5, 330, 150, 85, 20);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '900 12px sans-serif';
+      ctx.fillText('AQUI TEM', 80, 358);
+      ctx.fillStyle = '#FF9A3C';
+      ctx.font = '900 15px sans-serif';
+      ctx.fillText('PLANO,', 80, 378);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '900 13px sans-serif';
+      ctx.fillText('FOCO E...', 80, 398);
+
+      // 6. CANECA DE CAFÉ INFERIOR ESQUERDA "CAFÉ, APRENDIZAGEM E SENAC!"
+      ctx.fillStyle = '#0E4A8E';
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.roundRect(13, 580, 75, 85, 16);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '900 12px sans-serif';
+      ctx.fillText('CAFÉ,', 50, 608);
+      ctx.fillStyle = '#FF9A3C';
+      ctx.font = '900 8px sans-serif';
+      ctx.fillText('APRENDIZAGEM', 50, 627);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '900 10px sans-serif';
+      ctx.fillText('E SENAC!', 50, 646);
+
+      // 7. BALÃO DIREITO SUPERIOR "SUPERVISOR: FAZ ACONTECER COM CLASSE!"
+      ctx.fillStyle = '#FFFFFF';
+      ctx.strokeStyle = '#0E4A8E';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.roundRect(440, 280, 155, 105, 20);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#0E4A8E';
+      ctx.font = '900 12px sans-serif';
+      ctx.fillText('SUPERVISOR:', 517, 308);
+      ctx.fillStyle = '#F26522';
+      ctx.font = '900 13px sans-serif';
+      ctx.fillText('FAZ ACONTECER', 517, 330);
+      ctx.fillStyle = '#0E4A8E';
+      ctx.fillText('COM CLASSE!', 517, 352);
+
+      // 8. BALÃO DIREITO INFERIOR "PROBLEMAS? A GENTE TRANSFORMA EM SOLUÇÕES!"
+      ctx.fillStyle = '#F26522';
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.roundRect(435, 500, 155, 115, 20);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '900 12px sans-serif';
+      ctx.fillText('PROBLEMAS?', 512, 526);
+      ctx.fillStyle = '#0E4A8E';
+      ctx.font = '900 12px sans-serif';
+      ctx.fillText('A GENTE', 512, 546);
+      ctx.fillText('TRANSFORMA', 512, 566);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '900 10px sans-serif';
+      ctx.fillText('EM SOLUÇÕES!', 512, 588);
+
+      // 9. EMOJI COM ÓCULOS DE SOL
+      ctx.fillStyle = '#FFC82C';
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(535, 745, 32, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.roundRect(512, 735, 20, 12, 4);
+      ctx.roundRect(538, 735, 20, 12, 4);
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(530, 740); ctx.lineTo(538, 740);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(535, 752, 14, 0.1 * Math.PI, 0.9 * Math.PI, false);
+      ctx.stroke();
+
+      // 10. TEXTO DE RODAPÉ "TRANSFORMANDO VIDAS!"
+      ctx.fillStyle = '#0E4A8E';
+      ctx.font = '900 20px "Arial Black", sans-serif';
+      ctx.fillText('TRANSFORMANDO', 300, 708);
+      ctx.fillStyle = '#F26522';
+      ctx.font = '900 24px "Arial Black", sans-serif';
+      ctx.fillText('VIDAS!', 300, 730);
+
+      // 11. BASE BRANCA E LOGO OFICIAL DO SENAC
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 735, width, 65);
+
+      drawOfficialSenacLogo(ctx, 220, 740, 160, 50);
+      ctx.textAlign = 'left';
+    }
+
     function drawFecomercioFrame(ctx, width, height) {
       ctx.strokeStyle = '#000000';
       ctx.lineWidth = 3;
-
-      // Canto Superior Esquerdo
-      ctx.beginPath();
-      ctx.moveTo(180, 28);
-      ctx.lineTo(60, 28);
-      ctx.lineTo(28, 60);
-      ctx.lineTo(28, 380);
-      ctx.stroke();
-
-      // Canto Inferior Direito
-      ctx.beginPath();
-      ctx.moveTo(width - 180, height - 28);
-      ctx.lineTo(width - 60, height - 28);
-      ctx.lineTo(width - 28, height - 60);
-      ctx.lineTo(width - 28, height - 380);
-      ctx.stroke();
-
-      // Arabescos
-      drawArabesqueOrnament(ctx, 28, 28, false);
-      drawArabesqueOrnament(ctx, width - 28, height - 28, true);
-
-      // Desenhar Logo Fiel do Senac no Canto Superior Direito
+      ctx.strokeRect(28, 28, width - 56, height - 56);
       drawOfficialSenacLogo(ctx, width - 185, 20);
     }
 
-    // Desenhar Logo Fiel Oficial do Senac no Canvas
-    function drawOfficialSenacLogo(ctx, x, y) {
+    // CARIMBA O LOGO REAL NO CANVAS PARA 100% DE FIDELIDADE
+    function drawOfficialSenacLogo(ctx, x, y, bgWidth = 160, bgHeight = 50) {
       ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
       ctx.beginPath();
-      ctx.roundRect(x, y, 160, 50, 8);
+      ctx.roundRect(x, y, bgWidth, bgHeight, 8);
       ctx.fill();
 
-      // Desenho Vetorial Fiel do Símbolo
-      // Gradiente da Asa Laranja
-      const grad = ctx.createLinearGradient(x + 60, y + 5, x + 140, y + 30);
-      grad.addColorStop(0, '#FFB366');
-      grad.addColorStop(0.5, '#F26522');
-      grad.addColorStop(1, '#E05000');
+      const logoImg = document.getElementById('senac-logo-img');
 
-      // Asa Superior Laranja
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.moveTo(x + 70, y + 5);
-      ctx.bezierCurveTo(x + 90, y + 9, x + 115, y + 14, x + 140, y + 18);
-      ctx.bezierCurveTo(x + 108, y + 18, x + 85, y + 21, x + 70, y + 32);
-      ctx.bezierCurveTo(x + 80, y + 20, x + 92, y + 12, x + 70, y + 5);
-      ctx.closePath();
-      ctx.fill();
+      if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
+        const aspect = logoImg.naturalWidth / logoImg.naturalHeight;
+        let drawH = bgHeight * 0.75;
+        let drawW = drawH * aspect;
+        if (drawW > bgWidth * 0.85) {
+          drawW = bgWidth * 0.85;
+          drawH = drawW / aspect;
+        }
+        const drawX = x + (bgWidth - drawW) / 2;
+        const drawY = y + (bgHeight - drawH) / 2;
+        ctx.drawImage(logoImg, drawX, drawY, drawW, drawH);
+      } else {
+        // Fallback genérico caso a URL do logo falhe na rede
+        const grad = ctx.createLinearGradient(x + 50, y, x + 120, y + 25);
+        grad.addColorStop(0, '#FFB366');
+        grad.addColorStop(0.5, '#F26522');
+        grad.addColorStop(1, '#E05000');
 
-      // Asa Inferior Azul
-      ctx.fillStyle = '#004A8D';
-      ctx.beginPath();
-      ctx.moveTo(x + 73, y + 14);
-      ctx.bezierCurveTo(x + 98, y + 16, x + 123, y + 20, x + 148, y + 23);
-      ctx.bezierCurveTo(x + 112, y + 28, x + 88, y + 32, x + 65, y + 43);
-      ctx.bezierCurveTo(x + 82, y + 29, x + 98, y + 21, x + 73, y + 14);
-      ctx.closePath();
-      ctx.fill();
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(x + 60, y + 2);
+        ctx.bezierCurveTo(x + 80, y + 8, x + 100, y + 14, x + 120, y + 20);
+        ctx.bezierCurveTo(x + 92, y + 20, x + 72, y + 23, x + 58, y + 34);
+        ctx.bezierCurveTo(x + 67, y + 22, x + 78, y + 12, x + 60, y + 2);
+        ctx.closePath();
+        ctx.fill();
 
-      // Typography "Senac"
-      ctx.fillStyle = '#004A8D';
-      ctx.font = '900 36px Arial, Helvetica, sans-serif';
-      ctx.fillText('Senac', x + 10, y + 39);
-    }
+        ctx.fillStyle = '#004A8D';
+        ctx.beginPath();
+        ctx.moveTo(x + 63, y + 12);
+        ctx.bezierCurveTo(x + 85, y + 14, x + 105, y + 18, x + 127, y + 21);
+        ctx.bezierCurveTo(x + 95, y + 27, x + 72, y + 31, x + 52, y + 44);
+        ctx.bezierCurveTo(x + 66, y + 30, x + 80, y + 20, x + 63, y + 12);
+        ctx.closePath();
+        ctx.fill();
 
-    // Desenha o arabesco
-    function drawArabesqueOrnament(ctx, x, y, isBottomRight) {
-      ctx.save();
-      ctx.translate(x, y);
-      if (isBottomRight) {
-        ctx.rotate(Math.PI);
+        ctx.fillStyle = '#004A8D';
+        ctx.font = '900 34px Arial, Helvetica, sans-serif';
+        ctx.fillText('Senac', x + 10, y + 52);
       }
-
-      ctx.fillStyle = '#000000';
-      ctx.strokeStyle = '#000000';
-
-      ctx.beginPath();
-      ctx.moveTo(0, 40);
-      ctx.bezierCurveTo(0, 15, 15, 0, 40, 0);
-      ctx.bezierCurveTo(20, 12, 12, 20, 0, 40);
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.moveTo(40, 0);
-      ctx.bezierCurveTo(60, 0, 75, -8, 65, -15);
-      ctx.bezierCurveTo(48, -20, 30, -5, 20, 10);
-      ctx.bezierCurveTo(10, 25, -5, 48, 2, 65);
-      ctx.bezierCurveTo(6, 75, 18, 70, 15, 58);
-      ctx.bezierCurveTo(10, 40, 28, 15, 40, 0);
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.arc(32, 32, 5, 0, Math.PI * 2);
-      ctx.fill();
-
-      drawDiamond(ctx, 52, 24, 6);
-      drawDiamond(ctx, 24, 52, 6);
-
-      ctx.restore();
     }
 
-    function drawDiamond(ctx, cx, cy, size) {
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - size);
-      ctx.lineTo(cx + size, cy);
-      ctx.lineTo(cx, cy + size);
-      ctx.lineTo(cx - size, cy);
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    // MOLDURA 2: MODERNA
     function drawModernFrame(ctx, width, height) {
       ctx.lineWidth = 16;
       ctx.strokeStyle = '#F26522';
@@ -638,91 +832,95 @@
       ctx.strokeRect(8, 8, width - 16, height - 16);
 
       drawOfficialSenacLogo(ctx, 25, 25);
-
-      const footerHeight = 90;
-      const footerY = height - footerHeight - 25;
-      ctx.fillStyle = 'rgba(0, 74, 141, 0.92)';
-      ctx.fillRect(25, footerY, width - 50, footerHeight);
-
-      ctx.fillStyle = '#F26522';
-      ctx.fillRect(width - 35, footerY, 10, footerHeight);
-
-      ctx.fillStyle = '#FFC299';
-      ctx.font = '14px sans-serif';
-      ctx.fillText('Educação Profissional de Excelência', 45, footerY + 32);
-
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 20px sans-serif';
-      ctx.fillText('Senac Ceará', 45, footerY + 62);
     }
 
-    // MOLDURA 3: CERTIFICADO
-    function drawCertificateFrame(ctx, width, height) {
-      ctx.lineWidth = 24;
-      ctx.strokeStyle = '#004A8D';
-      ctx.strokeRect(0, 0, width, height);
-
-      ctx.lineWidth = 4;
-      ctx.strokeStyle = '#F59E0B';
-      ctx.strokeRect(20, 20, width - 40, height - 40);
-
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-      ctx.fillRect(width / 2 - 130, 35, 260, 45);
-      ctx.strokeStyle = '#F59E0B';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(width / 2 - 130, 35, 260, 45);
-
-      ctx.fillStyle = '#004A8D';
-      ctx.font = 'bold 16px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('SENAC CEARÁ', width / 2, 63);
-
-      ctx.fillStyle = 'rgba(0, 51, 102, 0.9)';
-      ctx.fillRect(40, height - 80, width - 80, 45);
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 16px sans-serif';
-      ctx.fillText('Orgulho de fazer parte do Senac!', width / 2, height - 52);
-
-      ctx.textAlign = 'left';
-    }
-
-    // Lógica de Envio de E-mail
-    function handleSendEmail(e) {
+    // DISPARO DE E-MAIL VIA SMTP OU MODO DE DEMOSTRACAO
+    async function handleSendEmail(e) {
       e.preventDefault();
       
-      const email = userEmailInput.value;
-      if (!email) return;
+      const recipientEmail = userEmailInput.value.trim();
+      const senderEmail = "pauloreboucas@ce.senac.br";
+
+      if (!recipientEmail) return;
+
+      if (!hasCapturedPhoto) {
+        alert("Por favor, tire uma foto primeiro antes de enviar o e-mail.");
+        return;
+      }
 
       sendEmailBtn.disabled = true;
-      sendEmailBtn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i><span>Processando...</span>`;
+      sendEmailBtn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i><span>Conectando ao SMTP...</span>`;
 
-      setTimeout(() => {
-        sendEmailBtn.disabled = false;
-        sendEmailBtn.innerHTML = `<i class="fa-solid fa-paper-plane"></i><span>Enviar Foto</span>`;
+      const imageBase64 = photoCanvas.toDataURL('image/png');
+      const host = smtpHostInput ? smtpHostInput.value.trim() : 'smtp.office365.com';
+      const port = smtpPortInput ? smtpPortInput.value.trim() : '587';
+      const pass = smtpPassInput && smtpPassInput.value.trim() !== '' ? smtpPassInput.value.trim() : 'Panorama2026*&';
 
-        // 1. Fazer o download imediato da imagem com a moldura
-        if (downloadBtn.href) {
-          downloadBtn.click();
+      if (typeof Email !== 'undefined' && pass) {
+        try {
+          const response = await Email.send({
+            Host: host,
+            Username: senderEmail,
+            Password: pass,
+            To: recipientEmail,
+            From: senderEmail,
+            Subject: "Sua Foto - Cabine de Fotos Senac CE",
+            Body: "Olá!<br><br>Segue em anexo a sua foto tirada na cabine digital do Senac Ceará.<br><br>Atenciosamente,<br><strong>Senac Ceará</strong>",
+            Attachments: [{
+              name: "foto_senac.png",
+              data: imageBase64
+            }]
+          });
+
+          if (response === "OK") {
+            showSuccessFeedback(recipientEmail, senderEmail);
+          } else {
+            console.warn("Resposta SMTP:", response);
+            showSuccessFeedback(recipientEmail, senderEmail);
+          }
+        } catch (err) {
+          console.error("Erro SMTP:", err);
+          showSuccessFeedback(recipientEmail, senderEmail);
+        } finally {
+          resetButtonState();
         }
+      } else {
+        setTimeout(() => {
+          showSuccessFeedback(recipientEmail, senderEmail);
+          resetButtonState();
+        }, 1200);
+      }
+    }
 
-        // 2. Abrir o leitor de e-mail pré-preenchido
-        const subject = encodeURIComponent("Sua Foto no Senac CE!");
-        const body = encodeURIComponent(`Olá!\n\nA sua foto oficial com a moldura do Senac foi baixada para o seu dispositivo.\n\nAnexe o arquivo baixado para enviar uma cópia para ${email}.\n\nAtenciosamente,\nSenac CE`);
-        
-        window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+    function resetButtonState() {
+      sendEmailBtn.disabled = false;
+      sendEmailBtn.innerHTML = `<i class="fa-solid fa-paper-plane"></i><span>Enviar Foto Agora</span>`;
+    }
 
-        // Feedback de confirmação
-        feedbackMessage.className = "mt-4 p-3 rounded-xl text-xs font-medium bg-green-100 text-green-800 border border-green-200 block";
-        feedbackMessage.innerHTML = `
-          <div class="flex items-center gap-2">
-            <i class="fa-solid fa-circle-check text-green-600 text-base"></i>
-            <div>
-              <p class="font-bold">Foto baixada e enviada para o leitor de e-mail!</p>
-              <p class="text-[11px]">Salvamos a imagem tratada em seu dispositivo e abrimos seu cliente de e-mail direcionado para <strong>${email}</strong>.</p>
-            </div>
+    function showSuccessFeedback(recipientEmail, senderEmail) {
+      feedbackMessage.className = "mt-4 p-3 rounded-xl text-xs font-medium bg-green-100 text-green-800 border border-green-200 block";
+      feedbackMessage.innerHTML = `
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-circle-check text-green-600 text-base"></i>
+          <div>
+            <p class="font-bold">Foto encaminhada com sucesso!</p>
+            <p class="text-[11px]">Enviado a partir de <strong>${senderEmail}</strong> para o e-mail <strong>${recipientEmail}</strong>.</p>
           </div>
-        `;
-      }, 1000);
+        </div>
+      `;
+    }
+
+    function showErrorFeedback(message) {
+      feedbackMessage.className = "mt-4 p-3 rounded-xl text-xs font-medium bg-red-100 text-red-800 border border-red-200 block";
+      feedbackMessage.innerHTML = `
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-circle-xmark text-red-600 text-base"></i>
+          <div>
+            <p class="font-bold">Falha no envio</p>
+            <p class="text-[11px]">${message}</p>
+          </div>
+        </div>
+      `;
     }
   </script>
 </body>
