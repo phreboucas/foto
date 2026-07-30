@@ -84,6 +84,38 @@
         </div>
       </div>
 
+      <!-- Card de Moldura Personalizada -->
+      <div class="bg-white rounded-2xl shadow-md p-6 border border-gray-200 mb-6">
+        <h3 class="text-md font-bold text-senac-blue mb-1 flex items-center gap-2">
+          <i class="fa-solid fa-crop-simple text-senac-orange"></i>
+          Moldura Personalizada
+        </h3>
+        <p class="text-xs text-gray-500 mb-4">
+          Envie um PNG (de preferência com fundo transparente na área do rosto, tamanho 600x800px) para usar como moldura no lugar das opções padrão.
+          Ela aparecerá na cabine como a opção <strong>"Personalizada"</strong>.
+        </p>
+
+        <div class="flex flex-col sm:flex-row gap-4 items-start">
+          <div class="w-32 aspect-[3/4] bg-gray-100 rounded-lg border border-dashed border-gray-300 overflow-hidden flex items-center justify-center flex-shrink-0">
+            <img id="custom-frame-preview" class="hidden w-full h-full object-contain" alt="Moldura personalizada atual">
+            <span id="custom-frame-empty" class="text-[10px] text-gray-400 text-center px-2">Nenhuma moldura personalizada</span>
+          </div>
+
+          <div class="flex-grow w-full space-y-2">
+            <input type="file" id="custom-frame-input" accept="image/png" class="w-full text-xs">
+            <div class="flex gap-2">
+              <button id="upload-frame-btn" class="bg-senac-blue hover:bg-senac-darkBlue text-white text-xs font-semibold px-4 py-2 rounded-lg">
+                <i class="fa-solid fa-upload"></i> Enviar moldura
+              </button>
+              <button id="remove-frame-btn" class="bg-red-50 text-red-600 hover:bg-red-100 text-xs font-semibold px-4 py-2 rounded-lg">
+                <i class="fa-solid fa-trash"></i> Remover (voltar ao padrão)
+              </button>
+            </div>
+            <div id="frame-feedback" class="hidden text-[11px] p-2 rounded-lg"></div>
+          </div>
+        </div>
+      </div>
+
       <div id="photos-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4"></div>
 
       <div id="empty-state" class="hidden text-center text-gray-400 py-16">
@@ -113,6 +145,13 @@
     const emptyState = document.getElementById('empty-state');
     const refreshBtn = document.getElementById('refresh-btn');
 
+    const customFramePreview = document.getElementById('custom-frame-preview');
+    const customFrameEmpty = document.getElementById('custom-frame-empty');
+    const customFrameInput = document.getElementById('custom-frame-input');
+    const uploadFrameBtn = document.getElementById('upload-frame-btn');
+    const removeFrameBtn = document.getElementById('remove-frame-btn');
+    const frameFeedback = document.getElementById('frame-feedback');
+
     async function checkSession() {
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (session) {
@@ -136,6 +175,7 @@
       userInfo.classList.add('flex');
       userEmailLabel.textContent = user.email;
       loadPhotos();
+      loadCustomFrame();
     }
 
     loginForm.addEventListener('submit', async (e) => {
@@ -255,6 +295,109 @@
 
       photosGrid.appendChild(card);
     }
+
+    function showFrameFeedback(message, isError) {
+      frameFeedback.classList.remove('hidden');
+      frameFeedback.className = isError
+        ? 'text-[11px] p-2 rounded-lg bg-red-50 text-red-700 border border-red-200'
+        : 'text-[11px] p-2 rounded-lg bg-green-50 text-green-700 border border-green-200';
+      frameFeedback.textContent = message;
+    }
+
+    async function loadCustomFrame() {
+      const { data, error } = await supabaseClient
+        .from('app_settings')
+        .select('custom_frame_url')
+        .eq('id', 1)
+        .single();
+
+      if (error) {
+        console.error('Erro ao carregar moldura personalizada:', error);
+        return;
+      }
+
+      if (data && data.custom_frame_url) {
+        customFramePreview.src = data.custom_frame_url;
+        customFramePreview.classList.remove('hidden');
+        customFrameEmpty.classList.add('hidden');
+      } else {
+        customFramePreview.classList.add('hidden');
+        customFrameEmpty.classList.remove('hidden');
+      }
+    }
+
+    uploadFrameBtn.addEventListener('click', async () => {
+      const file = customFrameInput.files && customFrameInput.files[0];
+      if (!file) {
+        showFrameFeedback('Selecione um arquivo PNG antes de enviar.', true);
+        return;
+      }
+
+      uploadFrameBtn.disabled = true;
+      uploadFrameBtn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Enviando...';
+
+      try {
+        const storagePath = `moldura_${Date.now()}.png`;
+
+        const { error: uploadError } = await supabaseClient
+          .storage
+          .from('frames')
+          .upload(storagePath, file, { contentType: 'image/png', upsert: false });
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = supabaseClient
+          .storage
+          .from('frames')
+          .getPublicUrl(storagePath);
+
+        const publicUrl = publicUrlData ? publicUrlData.publicUrl : null;
+
+        const { error: updateError } = await supabaseClient
+          .from('app_settings')
+          .update({
+            custom_frame_url: publicUrl,
+            custom_frame_storage_path: storagePath,
+            custom_frame_name: file.name,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', 1);
+
+        if (updateError) throw updateError;
+
+        showFrameFeedback('Moldura personalizada enviada e ativada com sucesso!', false);
+        customFrameInput.value = '';
+        loadCustomFrame();
+      } catch (err) {
+        console.error('Erro ao enviar moldura:', err);
+        showFrameFeedback('Erro ao enviar moldura: ' + (err.message || 'tente novamente.'), true);
+      } finally {
+        uploadFrameBtn.disabled = false;
+        uploadFrameBtn.innerHTML = '<i class="fa-solid fa-upload"></i> Enviar moldura';
+      }
+    });
+
+    removeFrameBtn.addEventListener('click', async () => {
+      if (!confirm('Remover a moldura personalizada e voltar às molduras padrão?')) return;
+
+      const { error } = await supabaseClient
+        .from('app_settings')
+        .update({
+          custom_frame_url: null,
+          custom_frame_storage_path: null,
+          custom_frame_name: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', 1);
+
+      if (error) {
+        showFrameFeedback('Erro ao remover moldura: ' + error.message, true);
+        return;
+      }
+
+      showFrameFeedback('Moldura personalizada removida. A cabine voltou a usar as molduras padrão.', false);
+      loadCustomFrame();
+    });
 
     checkSession();
   </script>

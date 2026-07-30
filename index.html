@@ -85,7 +85,7 @@
             <i class="fa-solid fa-paintbrush text-senac-orange"></i>
             Escolha o estilo da moldura:
           </label>
-          <div class="grid grid-cols-3 gap-2">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <button type="button" onclick="selectFrame('supervisores')" id="btn-frame-supervisores" class="frame-option p-2 text-xs font-semibold rounded-xl border-2 transition text-center flex flex-col items-center gap-1 bg-blue-50 border-senac-blue text-senac-blue shadow-sm">
               <i class="fa-solid fa-user-gear text-base"></i>
               <span>Supervisores</span>
@@ -97,6 +97,10 @@
             <button type="button" onclick="selectFrame('modern')" id="btn-frame-modern" class="frame-option p-2 text-xs font-semibold rounded-xl border-2 transition text-center flex flex-col items-center gap-1 border-gray-200 text-gray-600 hover:border-gray-300">
               <i class="fa-solid fa-bolt text-base"></i>
               <span>Moderna</span>
+            </button>
+            <button type="button" onclick="selectFrame('custom')" id="btn-frame-custom" class="hidden frame-option p-2 text-xs font-semibold rounded-xl border-2 transition text-center flex flex-col items-center gap-1 border-gray-200 text-gray-600 hover:border-gray-300">
+              <i class="fa-solid fa-image text-base"></i>
+              <span>Personalizada</span>
             </button>
           </div>
         </div>
@@ -250,6 +254,11 @@
               </div>
             </div>
 
+            <!-- Moldura Personalizada enviada pelo Admin -->
+            <div id="overlay-custom" class="overlay-frame absolute inset-0 pointer-events-none hidden z-10">
+              <img id="custom-frame-img" class="w-full h-full object-cover" alt="Moldura personalizada">
+            </div>
+
           </div>
 
           <!-- Botão Principal de Captura -->
@@ -373,6 +382,37 @@
     let currentPhotoPublicUrl = null;
     let stream = null;
 
+    // ---- Moldura personalizada (enviada pelo painel admin) ----
+    let customFrameUrl = null;
+    let customFrameImageObj = null;
+
+    async function loadCustomFrameSetting() {
+      try {
+        const { data, error } = await supabaseClient
+          .from('app_settings')
+          .select('custom_frame_url')
+          .eq('id', 1)
+          .single();
+
+        if (error || !data || !data.custom_frame_url) return;
+
+        customFrameUrl = data.custom_frame_url;
+
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          customFrameImageObj = img;
+          const btn = document.getElementById('btn-frame-custom');
+          const customFrameImgTag = document.getElementById('custom-frame-img');
+          if (customFrameImgTag) customFrameImgTag.src = customFrameUrl;
+          if (btn) btn.classList.remove('hidden');
+        };
+        img.src = customFrameUrl;
+      } catch (err) {
+        console.error('Erro ao carregar moldura personalizada:', err);
+      }
+    }
+
     function selectFrame(frameStyle) {
       currentFrame = frameStyle;
 
@@ -420,6 +460,7 @@
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         initCamera();
       }
+      loadCustomFrameSetting();
     });
 
     captureBtn.addEventListener('click', () => {
@@ -513,6 +554,8 @@
           drawFecomercioFrame(ctx, targetWidth, targetHeight);
         } else if (currentFrame === 'modern') {
           drawModernFrame(ctx, targetWidth, targetHeight);
+        } else if (currentFrame === 'custom' && customFrameImageObj) {
+          ctx.drawImage(customFrameImageObj, 0, 0, targetWidth, targetHeight);
         }
       }
 
