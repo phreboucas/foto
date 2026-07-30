@@ -570,22 +570,26 @@
 
         const publicUrl = publicUrlData ? publicUrlData.publicUrl : null;
 
-        const { data: insertedRow, error: insertError } = await supabaseClient
+        // Gera o ID no cliente: o kiosk (chave anon) tem permissão para inserir,
+        // mas não para ler de volta as linhas (isso é reservado ao admin autenticado).
+        // Por isso não usamos .select() após o insert.
+        const photoId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+        const { error: insertError } = await supabaseClient
           .from('photos')
           .insert({
+            id: photoId,
             frame_style: currentFrame,
             storage_path: storagePath,
             public_url: publicUrl
-          })
-          .select('id')
-          .single();
+          });
 
         if (insertError) {
           console.error('Erro ao salvar registro da foto no banco de dados:', insertError);
           return;
         }
 
-        currentPhotoId = insertedRow ? insertedRow.id : null;
+        currentPhotoId = photoId;
         currentPhotoPublicUrl = publicUrl;
       } catch (err) {
         console.error('Falha inesperada ao salvar a foto:', err);
