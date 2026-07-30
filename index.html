@@ -376,7 +376,13 @@
     // ---- Configuração do Supabase (armazenamento das fotos + banco de dados) ----
     const SUPABASE_URL = 'https://vewzytjigjjqslhlrhgb.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZld3p5dGppZ2pqcXNsaGxyaGdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0NDQ2ODgsImV4cCI6MjEwMTAyMDY4OH0.Pu3G2bG9m2lwPpA1dTIuFhprf26juU4NajXW_B7LFRY';
-    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // A cabine (kiosk) nunca deve usar uma sessão de login guardada no navegador
+    // (ex.: se o admin logou nesse mesmo dispositivo). Isso garante que o app
+    // sempre grava as fotos como usuário anônimo (anon), como esperado pelas
+    // políticas de RLS da tabela "photos".
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+    });
 
     let currentPhotoId = null;
     let currentPhotoPublicUrl = null;
