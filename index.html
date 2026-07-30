@@ -497,8 +497,13 @@
       }, 500);
 
       hasCapturedPhoto = true;
-      renderPhotoWithFrame();
+      const dataUrl = renderPhotoWithFrame();
       captureBtn.disabled = false;
+
+      // Só registra (envia para o Storage/banco) neste momento: quando a foto
+      // é de fato tirada após a contagem regressiva. Trocar de moldura depois
+      // apenas atualiza a pré-visualização, sem criar um novo registro.
+      uploadCapturedPhoto(dataUrl);
     }
 
     function renderPhotoWithFrame() {
@@ -576,9 +581,7 @@
 
       sendEmailBtn.disabled = false;
 
-      // Salva a foto no Supabase Storage/Banco de Dados assim que é tirada,
-      // independentemente de o usuário optar por enviá-la por e-mail depois.
-      uploadCapturedPhoto(dataUrl);
+      return dataUrl;
     }
 
     // Converte um dataURL em Blob (para upload binário no Storage)
