@@ -256,7 +256,10 @@
 
             <!-- Moldura Personalizada enviada pelo Admin -->
             <div id="overlay-custom" class="overlay-frame absolute inset-0 pointer-events-none hidden z-10">
-              <img id="custom-frame-img" class="w-full h-full object-cover" alt="Moldura personalizada">
+              <!-- object-fill (esticar, sem recortar) para bater exatamente com o que o canvas
+                   desenha na foto final (ctx.drawImage esticado para 600x800), evitando que a
+                   pré-visualização ao vivo mostre um recorte diferente da moldura. -->
+              <img id="custom-frame-img" class="w-full h-full object-fill" alt="Moldura personalizada">
             </div>
 
           </div>
