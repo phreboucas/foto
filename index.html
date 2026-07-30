@@ -8,11 +8,9 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- SDK SmtpJS para disparo direto via Servidor SMTP -->
-  <script src="https://smtpjs.com/v3/smtp.js"></script>
-  <!-- EmailJS SDK como alternativa -->
-  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
-  
+  <!-- Supabase JS (armazenamento das fotos + banco de dados) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
   <!-- Configuração das cores oficiais do Senac -->
   <script>
     tailwind.config = {
@@ -298,19 +296,14 @@
         <div class="bg-white rounded-2xl shadow-md p-6 border border-gray-200">
           <h3 class="text-md font-bold text-senac-blue mb-1 flex items-center gap-2">
             <i class="fa-solid fa-paper-plane text-senac-orange"></i>
-            Enviar Foto por E-mail (SMTP)
+            Enviar Foto por E-mail
           </h3>
-          <p class="text-xs text-gray-500 mb-4">A foto será encaminhada a partir do remetente institucional do Senac.</p>
+          <p class="text-xs text-gray-500 mb-4">A foto é enviada com segurança pelo nosso servidor, a partir do remetente institucional do Senac. Ela também fica salva automaticamente para consulta administrativa.</p>
 
           <form id="email-form" onsubmit="handleSendEmail(event)" class="space-y-4">
-            <div>
-              <label for="sender-email" class="block text-xs font-semibold text-gray-700 mb-1">E-mail Remetente (Senac)</label>
-              <div class="relative">
-                <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                  <i class="fa-solid fa-user-shield"></i>
-                </span>
-                <input type="email" id="sender-email" readonly value="pauloreboucas@ce.senac.br" class="w-full pl-10 pr-3 py-2 bg-gray-100 border border-gray-300 rounded-xl text-xs font-semibold text-senac-blue cursor-not-allowed">
-              </div>
+            <div class="flex items-center gap-2 text-[11px] text-senac-blue bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+              <i class="fa-solid fa-shield-halved"></i>
+              <span>Remetente institucional: <strong>pauloreboucas@ce.senac.br</strong></span>
             </div>
 
             <div>
@@ -329,37 +322,6 @@
             </button>
           </form>
 
-          <!-- Sanfona Configurações do Servidor SMTP / EmailJS -->
-          <details class="mt-4 border-t border-gray-100 pt-3">
-            <summary class="text-xs text-gray-500 hover:text-senac-blue cursor-pointer font-medium flex items-center justify-between">
-              <span><i class="fa-solid fa-server text-xs mr-1"></i> Configurações do Servidor SMTP / EmailJS</span>
-              <i class="fa-solid fa-chevron-down text-[10px]"></i>
-            </summary>
-            <div class="mt-3 space-y-3 text-xs bg-gray-50 p-3 rounded-lg border border-gray-200">
-              <div class="p-2 bg-blue-50 border border-blue-200 rounded text-[11px] text-senac-darkBlue">
-                <strong>Servidor SMTP Ativo:</strong> Office365 / Senac CE (`smtp.office365.com`)
-              </div>
-              <div>
-                <label class="block text-[10px] font-bold text-gray-600">Servidor Host SMTP</label>
-                <input type="text" id="smtp-host" value="smtp.office365.com" class="w-full p-1.5 bg-white border border-gray-300 rounded text-xs">
-              </div>
-              <div class="grid grid-cols-2 gap-2">
-                <div>
-                  <label class="block text-[10px] font-bold text-gray-600">Porta</label>
-                  <input type="text" id="smtp-port" value="587" class="w-full p-1.5 bg-white border border-gray-300 rounded text-xs">
-                </div>
-                <div>
-                  <label class="block text-[10px] font-bold text-gray-600">Senha / SecureToken</label>
-                  <input type="password" id="smtp-pass" value="Panorama2026*&" placeholder="Senha do e-mail ou Token" class="w-full p-1.5 bg-white border border-gray-300 rounded text-xs">
-                </div>
-              </div>
-              <div class="border-t border-gray-200 pt-2">
-                <label class="block text-[10px] font-bold text-gray-600">EmailJS Public Key (Opcional)</label>
-                <input type="text" id="emailjs-publickey" placeholder="Para fallback via API EmailJS" class="w-full p-1.5 bg-white border border-gray-300 rounded text-xs">
-              </div>
-            </div>
-          </details>
-
           <!-- Feedback de Sucesso/Erro -->
           <div id="feedback-message" class="mt-4 p-3 rounded-xl text-xs font-medium hidden"></div>
         </div>
@@ -373,8 +335,9 @@
   <footer class="bg-gray-800 text-gray-400 py-4 text-center text-xs mt-8">
     <div class="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-2">
       <p>&copy; Senac CE - Serviço Nacional de Aprendizagem Comercial. Todos os direitos reservados.</p>
-      <p class="flex items-center gap-1">
-        Remetente Autorizado: pauloreboucas@ce.senac.br
+      <p class="flex items-center gap-2">
+        <span>Remetente Autorizado: pauloreboucas@ce.senac.br</span>
+        <a href="/admin.html" class="text-gray-500 hover:text-white underline">Painel Admin</a>
       </p>
     </div>
   </footer>
@@ -401,12 +364,13 @@
     const feedbackMessage = document.getElementById('feedback-message');
     const userEmailInput = document.getElementById('user-email');
 
-    // Campos de SMTP
-    const smtpHostInput = document.getElementById('smtp-host');
-    const smtpPortInput = document.getElementById('smtp-port');
-    const smtpPassInput = document.getElementById('smtp-pass');
-    const emailjsPublicKeyInput = document.getElementById('emailjs-publickey');
+    // ---- Configuração do Supabase (armazenamento das fotos + banco de dados) ----
+    const SUPABASE_URL = 'https://vewzytjigjjqslhlrhgb.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZld3p5dGppZ2pqcXNsaGxyaGdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0NDQ2ODgsImV4cCI6MjEwMTAyMDY4OH0.Pu3G2bG9m2lwPpA1dTIuFhprf26juU4NajXW_B7LFRY';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+    let currentPhotoId = null;
+    let currentPhotoPublicUrl = null;
     let stream = null;
 
     function selectFrame(frameStyle) {
@@ -562,6 +526,70 @@
       downloadBtn.classList.remove('pointer-events-none', 'opacity-50', 'cursor-not-allowed');
 
       sendEmailBtn.disabled = false;
+
+      // Salva a foto no Supabase Storage/Banco de Dados assim que é tirada,
+      // independentemente de o usuário optar por enviá-la por e-mail depois.
+      uploadCapturedPhoto(dataUrl);
+    }
+
+    // Converte um dataURL em Blob (para upload binário no Storage)
+    function dataUrlToBlob(dataUrl) {
+      const [header, base64] = dataUrl.split(',');
+      const mimeMatch = header.match(/data:(.*?);base64/);
+      const mime = mimeMatch ? mimeMatch[1] : 'image/png';
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return new Blob([bytes], { type: mime });
+    }
+
+    // Faz upload da foto para o Supabase Storage e cria o registro no banco de dados
+    async function uploadCapturedPhoto(dataUrl) {
+      currentPhotoId = null;
+      currentPhotoPublicUrl = null;
+
+      try {
+        const blob = dataUrlToBlob(dataUrl);
+        const fileName = `${Date.now()}_${Math.random().toString(36).slice(2)}.png`;
+        const storagePath = `capturas/${fileName}`;
+
+        const { error: uploadError } = await supabaseClient
+          .storage
+          .from('photos')
+          .upload(storagePath, blob, { contentType: 'image/png', upsert: false });
+
+        if (uploadError) {
+          console.error('Erro ao enviar foto para o Storage:', uploadError);
+          return;
+        }
+
+        const { data: publicUrlData } = supabaseClient
+          .storage
+          .from('photos')
+          .getPublicUrl(storagePath);
+
+        const publicUrl = publicUrlData ? publicUrlData.publicUrl : null;
+
+        const { data: insertedRow, error: insertError } = await supabaseClient
+          .from('photos')
+          .insert({
+            frame_style: currentFrame,
+            storage_path: storagePath,
+            public_url: publicUrl
+          })
+          .select('id')
+          .single();
+
+        if (insertError) {
+          console.error('Erro ao salvar registro da foto no banco de dados:', insertError);
+          return;
+        }
+
+        currentPhotoId = insertedRow ? insertedRow.id : null;
+        currentPhotoPublicUrl = publicUrl;
+      } catch (err) {
+        console.error('Falha inesperada ao salvar a foto:', err);
+      }
     }
 
     // DESENHO COMPLETO DE TODOS OS ELEMENTOS DA MOLDURA SUPERVISORES NO CANVAS
@@ -834,10 +862,10 @@
       drawOfficialSenacLogo(ctx, 25, 25);
     }
 
-    // DISPARO DE E-MAIL VIA SMTP OU MODO DE DEMOSTRACAO
+    // DISPARO DE E-MAIL VIA FUNÇÃO SEGURA NO SERVIDOR (/api/send-email)
     async function handleSendEmail(e) {
       e.preventDefault();
-      
+
       const recipientEmail = userEmailInput.value.trim();
       const senderEmail = "pauloreboucas@ce.senac.br";
 
@@ -849,46 +877,49 @@
       }
 
       sendEmailBtn.disabled = true;
-      sendEmailBtn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i><span>Conectando ao SMTP...</span>`;
+      sendEmailBtn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i><span>Enviando...</span>`;
 
       const imageBase64 = photoCanvas.toDataURL('image/png');
-      const host = smtpHostInput ? smtpHostInput.value.trim() : 'smtp.office365.com';
-      const port = smtpPortInput ? smtpPortInput.value.trim() : '587';
-      const pass = smtpPassInput && smtpPassInput.value.trim() !== '' ? smtpPassInput.value.trim() : 'Panorama2026*&';
 
-      if (typeof Email !== 'undefined' && pass) {
-        try {
-          const response = await Email.send({
-            Host: host,
-            Username: senderEmail,
-            Password: pass,
-            To: recipientEmail,
-            From: senderEmail,
-            Subject: "Sua Foto - Cabine de Fotos Senac CE",
-            Body: "Olá!<br><br>Segue em anexo a sua foto tirada na cabine digital do Senac Ceará.<br><br>Atenciosamente,<br><strong>Senac Ceará</strong>",
-            Attachments: [{
-              name: "foto_senac.png",
-              data: imageBase64
-            }]
-          });
+      try {
+        const response = await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            recipientEmail,
+            imageBase64,
+            frameStyle: currentFrame
+          })
+        });
 
-          if (response === "OK") {
-            showSuccessFeedback(recipientEmail, senderEmail);
-          } else {
-            console.warn("Resposta SMTP:", response);
-            showSuccessFeedback(recipientEmail, senderEmail);
-          }
-        } catch (err) {
-          console.error("Erro SMTP:", err);
-          showSuccessFeedback(recipientEmail, senderEmail);
-        } finally {
-          resetButtonState();
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok || !result.success) {
+          throw new Error((result && result.error) || 'Não foi possível enviar o e-mail.');
         }
-      } else {
-        setTimeout(() => {
-          showSuccessFeedback(recipientEmail, senderEmail);
-          resetButtonState();
-        }, 1200);
+
+        showSuccessFeedback(recipientEmail, senderEmail);
+
+        // Atualiza o registro da foto no banco de dados com o destinatário e status de envio
+        if (currentPhotoId) {
+          const { error: updateError } = await supabaseClient
+            .from('photos')
+            .update({
+              recipient_email: recipientEmail,
+              email_sent: true,
+              email_sent_at: new Date().toISOString()
+            })
+            .eq('id', currentPhotoId);
+
+          if (updateError) {
+            console.error('Erro ao atualizar status de envio no banco de dados:', updateError);
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao enviar e-mail:", err);
+        showErrorFeedback(err.message || 'Tente novamente em instantes.');
+      } finally {
+        resetButtonState();
       }
     }
 

@@ -1,0 +1,6 @@
+{
+  "name": "foto-senac-ce",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cabine de Fotos Digital - Senac Ceará (frontend estático + API serverless na Vercel + Supabase)"
+}
