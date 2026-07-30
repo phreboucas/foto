@@ -586,6 +586,29 @@
       return new Blob([bytes], { type: mime });
     }
 
+    // Envia um Blob diretamente para a Storage REST API do Supabase (upload binário puro).
+    // Usamos fetch direto em vez do método .storage.upload() do SDK: em testes o método do SDK
+    // (que envia como multipart/form-data) se mostrou instável nesse projeto, enquanto o upload
+    // binário direto funcionou de forma consistente.
+    async function uploadBlobToStorage(bucket, path, blob) {
+      const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'apikey': SUPABASE_ANON_KEY,
+          'Content-Type': blob.type || 'application/octet-stream'
+        },
+        body: blob
+      });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`Falha no upload (status ${res.status}): ${text}`);
+      }
+
+      return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`;
+    }
+
     // Faz upload da foto para o Supabase Storage e cria o registro no banco de dados
     async function uploadCapturedPhoto(dataUrl) {
       currentPhotoId = null;
@@ -596,22 +619,13 @@
         const fileName = `${Date.now()}_${Math.random().toString(36).slice(2)}.png`;
         const storagePath = `capturas/${fileName}`;
 
-        const { error: uploadError } = await supabaseClient
-          .storage
-          .from('photos')
-          .upload(storagePath, blob, { contentType: 'image/png', upsert: false });
-
-        if (uploadError) {
+        let publicUrl;
+        try {
+          publicUrl = await uploadBlobToStorage('photos', storagePath, blob);
+        } catch (uploadError) {
           console.error('Erro ao enviar foto para o Storage:', uploadError);
           return;
         }
-
-        const { data: publicUrlData } = supabaseClient
-          .storage
-          .from('photos')
-          .getPublicUrl(storagePath);
-
-        const publicUrl = publicUrlData ? publicUrlData.publicUrl : null;
 
         // Gera o ID no cliente: o kiosk (chave anon) tem permissão para inserir,
         // mas não para ler de volta as linhas (isso é reservado ao admin autenticado).

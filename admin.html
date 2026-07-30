@@ -339,19 +339,27 @@
       try {
         const storagePath = `moldura_${Date.now()}.png`;
 
-        const { error: uploadError } = await supabaseClient
-          .storage
-          .from('frames')
-          .upload(storagePath, file, { contentType: 'image/png', upsert: false });
+        // Upload via fetch direto na Storage REST API (mais confiável neste projeto do que
+        // o método .storage.upload() do SDK, que em testes se mostrou instável).
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        const accessToken = session ? session.access_token : SUPABASE_ANON_KEY;
 
-        if (uploadError) throw uploadError;
+        const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/frames/${storagePath}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'apikey': SUPABASE_ANON_KEY,
+            'Content-Type': file.type || 'image/png'
+          },
+          body: file
+        });
 
-        const { data: publicUrlData } = supabaseClient
-          .storage
-          .from('frames')
-          .getPublicUrl(storagePath);
+        if (!uploadRes.ok) {
+          const text = await uploadRes.text().catch(() => '');
+          throw new Error(`Falha no upload (status ${uploadRes.status}): ${text}`);
+        }
 
-        const publicUrl = publicUrlData ? publicUrlData.publicUrl : null;
+        const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/frames/${storagePath}`;
 
         const { error: updateError } = await supabaseClient
           .from('app_settings')
