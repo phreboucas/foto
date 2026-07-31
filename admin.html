@@ -101,16 +101,40 @@
             <span id="custom-frame-empty" class="text-[10px] text-gray-400 text-center px-2">Nenhuma moldura personalizada</span>
           </div>
 
-          <div class="flex-grow w-full space-y-2">
-            <input type="file" id="custom-frame-input" accept="image/png" class="w-full text-xs">
-            <div class="flex gap-2">
-              <button id="upload-frame-btn" class="bg-senac-blue hover:bg-senac-darkBlue text-white text-xs font-semibold px-4 py-2 rounded-lg">
-                <i class="fa-solid fa-upload"></i> Enviar moldura
-              </button>
-              <button id="remove-frame-btn" class="bg-red-50 text-red-600 hover:bg-red-100 text-xs font-semibold px-4 py-2 rounded-lg">
-                <i class="fa-solid fa-trash"></i> Remover (voltar ao padrão)
-              </button>
+          <div class="flex-grow w-full space-y-3">
+            <div>
+              <input type="file" id="custom-frame-input" accept="image/png" class="w-full text-xs">
+              <p class="text-[10px] text-gray-400 mt-1">Selecione um PNG para abrir o ajuste de posição/zoom antes de salvar (evita que a moldura fique "vazando" nas laterais).</p>
             </div>
+
+            <!-- Editor de posição/zoom: aparece ao escolher um arquivo -->
+            <div id="frame-editor-wrap" class="hidden border border-gray-200 rounded-xl p-3 bg-gray-50">
+              <div class="flex flex-col sm:flex-row gap-4 items-start">
+                <div class="flex-shrink-0">
+                  <canvas id="frame-editor-canvas" width="300" height="400" class="rounded-lg border border-gray-300 cursor-move touch-none block"></canvas>
+                  <p class="text-[10px] text-gray-400 mt-1 text-center" style="width:300px;">Arraste para posicionar</p>
+                </div>
+                <div class="flex-grow w-full space-y-2 pt-1">
+                  <label class="block text-[11px] font-semibold text-gray-600">
+                    Zoom: <span id="frame-zoom-value">100%</span>
+                  </label>
+                  <input type="range" id="frame-zoom-slider" min="30" max="300" value="100" class="w-full">
+                  <div class="flex gap-2 pt-1">
+                    <button id="save-frame-btn" class="bg-senac-blue hover:bg-senac-darkBlue text-white text-xs font-semibold px-4 py-2 rounded-lg">
+                      <i class="fa-solid fa-check"></i> Salvar Moldura
+                    </button>
+                    <button id="cancel-frame-edit-btn" class="bg-gray-100 text-gray-600 hover:bg-gray-200 text-xs font-semibold px-4 py-2 rounded-lg">
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button id="remove-frame-btn" class="bg-red-50 text-red-600 hover:bg-red-100 text-xs font-semibold px-4 py-2 rounded-lg">
+              <i class="fa-solid fa-trash"></i> Remover (voltar ao padrão)
+            </button>
+
             <div id="frame-feedback" class="hidden text-[11px] p-2 rounded-lg"></div>
           </div>
         </div>
@@ -148,9 +172,16 @@
     const customFramePreview = document.getElementById('custom-frame-preview');
     const customFrameEmpty = document.getElementById('custom-frame-empty');
     const customFrameInput = document.getElementById('custom-frame-input');
-    const uploadFrameBtn = document.getElementById('upload-frame-btn');
     const removeFrameBtn = document.getElementById('remove-frame-btn');
     const frameFeedback = document.getElementById('frame-feedback');
+
+    // Editor de posição/zoom da moldura personalizada
+    const frameEditorWrap = document.getElementById('frame-editor-wrap');
+    const frameEditorCanvas = document.getElementById('frame-editor-canvas');
+    const frameZoomSlider = document.getElementById('frame-zoom-slider');
+    const frameZoomValue = document.getElementById('frame-zoom-value');
+    const saveFrameBtn = document.getElementById('save-frame-btn');
+    const cancelFrameEditBtn = document.getElementById('cancel-frame-edit-btn');
 
     async function checkSession() {
       const { data: { session } } = await supabaseClient.auth.getSession();
@@ -326,17 +357,162 @@
       }
     }
 
-    uploadFrameBtn.addEventListener('click', async () => {
+    // ----- Editor de posição/zoom da moldura personalizada -----
+    // Resolução do editor (metade da resolução final) e resolução final salva no Storage.
+    const FRAME_EDITOR_W = 300, FRAME_EDITOR_H = 400;
+    const FRAME_FINAL_W = 600, FRAME_FINAL_H = 800;
+
+    let editorImg = null;
+    let editorBaseScale = 1; // escala "contain" (imagem inteira visível) = referência de 100% no zoom
+    let editorScale = 1;
+    let editorOffsetX = 0;
+    let editorOffsetY = 0;
+    let isDraggingFrame = false;
+    let dragStartX = 0, dragStartY = 0;
+    let dragStartOffsetX = 0, dragStartOffsetY = 0;
+
+    customFrameInput.addEventListener('change', () => {
       const file = customFrameInput.files && customFrameInput.files[0];
-      if (!file) {
-        showFrameFeedback('Selecione um arquivo PNG antes de enviar.', true);
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          editorImg = img;
+          editorBaseScale = Math.min(FRAME_EDITOR_W / img.width, FRAME_EDITOR_H / img.height);
+          editorScale = editorBaseScale;
+          editorOffsetX = (FRAME_EDITOR_W - img.width * editorScale) / 2;
+          editorOffsetY = (FRAME_EDITOR_H - img.height * editorScale) / 2;
+          frameZoomSlider.value = 100;
+          frameZoomValue.textContent = '100%';
+          frameFeedback.classList.add('hidden');
+          frameEditorWrap.classList.remove('hidden');
+          drawFrameEditor();
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    function drawFrameEditor() {
+      const ctx = frameEditorCanvas.getContext('2d');
+      ctx.clearRect(0, 0, FRAME_EDITOR_W, FRAME_EDITOR_H);
+
+      // Fundo quadriculado para indicar transparência do PNG
+      const tile = 12;
+      for (let y = 0; y < FRAME_EDITOR_H; y += tile) {
+        for (let x = 0; x < FRAME_EDITOR_W; x += tile) {
+          ctx.fillStyle = ((Math.floor(x / tile) + Math.floor(y / tile)) % 2 === 0) ? '#e5e7eb' : '#ffffff';
+          ctx.fillRect(x, y, tile, tile);
+        }
+      }
+
+      if (editorImg) {
+        ctx.drawImage(
+          editorImg,
+          editorOffsetX, editorOffsetY,
+          editorImg.width * editorScale, editorImg.height * editorScale
+        );
+      }
+
+      // Contorno indicando a área exata da foto (3:4)
+      ctx.strokeStyle = '#0E4A8E';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(1.5, 1.5, FRAME_EDITOR_W - 3, FRAME_EDITOR_H - 3);
+    }
+
+    frameZoomSlider.addEventListener('input', () => {
+      if (!editorImg) return;
+      const percent = parseInt(frameZoomSlider.value, 10);
+      frameZoomValue.textContent = percent + '%';
+
+      // Mantém o centro da imagem fixo ao aplicar o zoom
+      const centerX = editorOffsetX + (editorImg.width * editorScale) / 2;
+      const centerY = editorOffsetY + (editorImg.height * editorScale) / 2;
+
+      editorScale = editorBaseScale * (percent / 100);
+
+      editorOffsetX = centerX - (editorImg.width * editorScale) / 2;
+      editorOffsetY = centerY - (editorImg.height * editorScale) / 2;
+
+      drawFrameEditor();
+    });
+
+    function startFrameDrag(clientX, clientY) {
+      if (!editorImg) return;
+      isDraggingFrame = true;
+      dragStartX = clientX;
+      dragStartY = clientY;
+      dragStartOffsetX = editorOffsetX;
+      dragStartOffsetY = editorOffsetY;
+    }
+
+    function moveFrameDrag(clientX, clientY) {
+      if (!isDraggingFrame) return;
+      const rect = frameEditorCanvas.getBoundingClientRect();
+      const scaleX = FRAME_EDITOR_W / rect.width;
+      const scaleY = FRAME_EDITOR_H / rect.height;
+      editorOffsetX = dragStartOffsetX + (clientX - dragStartX) * scaleX;
+      editorOffsetY = dragStartOffsetY + (clientY - dragStartY) * scaleY;
+      drawFrameEditor();
+    }
+
+    function endFrameDrag() {
+      isDraggingFrame = false;
+    }
+
+    frameEditorCanvas.addEventListener('mousedown', (e) => startFrameDrag(e.clientX, e.clientY));
+    window.addEventListener('mousemove', (e) => moveFrameDrag(e.clientX, e.clientY));
+    window.addEventListener('mouseup', endFrameDrag);
+
+    frameEditorCanvas.addEventListener('touchstart', (e) => {
+      const t = e.touches[0];
+      startFrameDrag(t.clientX, t.clientY);
+    }, { passive: true });
+    frameEditorCanvas.addEventListener('touchmove', (e) => {
+      const t = e.touches[0];
+      moveFrameDrag(t.clientX, t.clientY);
+      e.preventDefault();
+    }, { passive: false });
+    frameEditorCanvas.addEventListener('touchend', endFrameDrag);
+
+    cancelFrameEditBtn.addEventListener('click', () => {
+      editorImg = null;
+      customFrameInput.value = '';
+      frameEditorWrap.classList.add('hidden');
+    });
+
+    saveFrameBtn.addEventListener('click', async () => {
+      if (!editorImg) {
+        showFrameFeedback('Selecione um arquivo PNG antes de salvar.', true);
         return;
       }
 
-      uploadFrameBtn.disabled = true;
-      uploadFrameBtn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Enviando...';
+      saveFrameBtn.disabled = true;
+      saveFrameBtn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Salvando...';
 
       try {
+        // Renderiza a composição final (posição/zoom ajustados no editor) já na resolução
+        // exata usada na cabine (600x800), preservando a transparência do PNG original.
+        // Assim a moldura salva já sai "pronta" e não precisa mais ser esticada/recortada
+        // depois — resolve o problema de vazar nas laterais.
+        const factor = FRAME_FINAL_W / FRAME_EDITOR_W; // 2x
+
+        const finalCanvas = document.createElement('canvas');
+        finalCanvas.width = FRAME_FINAL_W;
+        finalCanvas.height = FRAME_FINAL_H;
+        const finalCtx = finalCanvas.getContext('2d');
+        finalCtx.clearRect(0, 0, FRAME_FINAL_W, FRAME_FINAL_H);
+        finalCtx.drawImage(
+          editorImg,
+          editorOffsetX * factor, editorOffsetY * factor,
+          editorImg.width * editorScale * factor, editorImg.height * editorScale * factor
+        );
+
+        const blob = await new Promise((resolve) => finalCanvas.toBlob(resolve, 'image/png'));
+        if (!blob) throw new Error('Não foi possível gerar a imagem final.');
+
         const storagePath = `moldura_${Date.now()}.png`;
 
         // Upload via fetch direto na Storage REST API (mais confiável neste projeto do que
@@ -349,9 +525,9 @@
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'apikey': SUPABASE_ANON_KEY,
-            'Content-Type': file.type || 'image/png'
+            'Content-Type': 'image/png'
           },
-          body: file
+          body: blob
         });
 
         if (!uploadRes.ok) {
@@ -360,28 +536,31 @@
         }
 
         const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/frames/${storagePath}`;
+        const originalName = (customFrameInput.files[0] && customFrameInput.files[0].name) || 'moldura.png';
 
         const { error: updateError } = await supabaseClient
           .from('app_settings')
           .update({
             custom_frame_url: publicUrl,
             custom_frame_storage_path: storagePath,
-            custom_frame_name: file.name,
+            custom_frame_name: originalName,
             updated_at: new Date().toISOString()
           })
           .eq('id', 1);
 
         if (updateError) throw updateError;
 
-        showFrameFeedback('Moldura personalizada enviada e ativada com sucesso!', false);
+        showFrameFeedback('Moldura personalizada ajustada, enviada e ativada com sucesso!', false);
         customFrameInput.value = '';
+        editorImg = null;
+        frameEditorWrap.classList.add('hidden');
         loadCustomFrame();
       } catch (err) {
-        console.error('Erro ao enviar moldura:', err);
-        showFrameFeedback('Erro ao enviar moldura: ' + (err.message || 'tente novamente.'), true);
+        console.error('Erro ao salvar moldura:', err);
+        showFrameFeedback('Erro ao salvar moldura: ' + (err.message || 'tente novamente.'), true);
       } finally {
-        uploadFrameBtn.disabled = false;
-        uploadFrameBtn.innerHTML = '<i class="fa-solid fa-upload"></i> Enviar moldura';
+        saveFrameBtn.disabled = false;
+        saveFrameBtn.innerHTML = '<i class="fa-solid fa-check"></i> Salvar Moldura';
       }
     });
 
